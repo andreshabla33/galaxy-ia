@@ -231,7 +231,7 @@ export default function Home() {
         </div>
       )}
 
-      <GalaxyCanvas isListening={isListening || isLoading} volume={isLoading ? 0.3 : volume} frequencyRef={frequencyRef} artifactType={lastArtifact?.type ?? null} />
+      <GalaxyCanvas isListening={isListening || isLoading} volume={isLoading ? 0.3 : volume} frequencyRef={frequencyRef} artifactType={lastArtifact?.type ?? null} panelOpen={panelOpen && messages.length > 0} />
 
       <div className="flex w-full h-screen relative z-10">
         {/* Left: Voice/Chat */}

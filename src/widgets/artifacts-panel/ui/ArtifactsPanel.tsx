@@ -157,7 +157,7 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   }
 
   return (
-    <div className={`w-1/2 min-w-[500px] max-w-[700px] border-l border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl flex flex-col transition-all duration-500 ${isOpen && messages.length > 0 ? 'translate-x-0' : 'translate-x-full'} absolute right-0 h-full`}>
+    <div className={`border-l border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl flex flex-col transition-all duration-500 ${isOpen && messages.length > 0 ? 'w-[45%] min-w-[450px] max-w-[700px] opacity-100' : 'w-0 min-w-0 opacity-0 overflow-hidden'} h-full shrink-0`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.06]">
         <SquareTerminal className="w-4 h-4 text-indigo-400" />
@@ -200,26 +200,38 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
           />
         </>
       ) : (
-        // === NORMAL MODE: Message list ===
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-4">
-          {messages.map((m) => (
-            <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-              {m.role === 'user' ? (
-                <div className="max-w-[90%] rounded-2xl p-4 bg-indigo-500/20 text-indigo-100 border border-indigo-500/20">
-                  <p className="text-sm">{m.content}</p>
-                </div>
-              ) : (
-                <AssistantMessage content={m.content} />
-              )}
-            </div>
-          ))}
+        // === NORMAL MODE: Message list + always-visible edit chat ===
+        <>
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-4">
+            {messages.map((m) => (
+              <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {m.role === 'user' ? (
+                  <div className="max-w-[90%] rounded-2xl p-4 bg-indigo-500/20 text-indigo-100 border border-indigo-500/20">
+                    <p className="text-sm">{m.content}</p>
+                  </div>
+                ) : (
+                  <AssistantMessage content={m.content} />
+                )}
+              </div>
+            ))}
 
-          {isLoading && (() => {
-            // Find last user message for context-aware thinking steps
-            const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || ''
-            return <ThinkingIndicator userMessage={lastUserMsg} />
-          })()}
-        </div>
+            {isLoading && (() => {
+              // Find last user message for context-aware thinking steps
+              const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || ''
+              return <ThinkingIndicator userMessage={lastUserMsg} />
+            })()}
+          </div>
+
+          {/* Always-visible edit chat when artifact exists */}
+          {displayArtifact && !isLoading && (
+            <ArtifactEditChat
+              onSendEdit={handleSendEdit}
+              isEditing={isEditing}
+              editHistory={editHistory}
+              artifactType={displayArtifact.type}
+            />
+          )}
+        </>
       )}
     </div>
   )

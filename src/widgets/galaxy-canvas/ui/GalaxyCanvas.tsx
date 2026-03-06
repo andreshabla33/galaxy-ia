@@ -421,6 +421,7 @@ interface GalaxyCanvasProps {
   volume?: number;
   frequencyRef?: React.RefObject<FrequencyData>;
   artifactType?: ArtifactType | null;
+  panelOpen?: boolean;
 }
 
 const defaultFreq: FrequencyData = {
@@ -434,6 +435,7 @@ export default function GalaxyCanvas({
   volume = 0,
   frequencyRef,
   artifactType,
+  panelOpen = false,
 }: GalaxyCanvasProps) {
   const fallbackRef = useRef<FrequencyData>(defaultFreq)
   const freqRef = frequencyRef ?? fallbackRef
@@ -458,7 +460,10 @@ export default function GalaxyCanvas({
   }, [])
 
   return (
-    <div className="fixed inset-0 w-screen h-screen" style={{ zIndex: 0 }}>
+    <div
+      className="fixed top-0 left-0 h-screen transition-all duration-500 ease-in-out"
+      style={{ zIndex: 0, right: panelOpen ? '45%' : '0' }}
+    >
       <Canvas
         frameloop={frameloop}
         camera={{ position: [0, 1.2, 4.5], fov: 60 }}
