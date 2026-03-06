@@ -64,13 +64,30 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
     historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [editHistory.length])
 
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingTranscriptRef = useRef('')
+
   const stopVoice = useCallback(() => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop() } catch (e) { /* ignore */ }
       recognitionRef.current = null
     }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
     setIsListening(false)
   }, [])
+
+  // Auto-send after silence — called when silence timer fires
+  const autoSendVoice = useCallback(() => {
+    const text = pendingTranscriptRef.current.trim()
+    if (text && !isEditing) {
+      stopVoice()
+      setInput('')
+      onSendEdit(text)
+    }
+  }, [isEditing, onSendEdit, stopVoice])
 
   const startVoice = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -87,6 +104,14 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
         transcript += event.results[i][0].transcript
       }
       setInput(transcript)
+      pendingTranscriptRef.current = transcript
+
+      // Reset silence timer on each new speech result
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = setTimeout(() => {
+        // 3 seconds of silence → auto-send
+        autoSendVoice()
+      }, 3000)
     }
 
     recognition.onerror = (event: any) => {
@@ -101,9 +126,10 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
     }
 
     recognitionRef.current = recognition
+    pendingTranscriptRef.current = ''
     recognition.start()
     setIsListening(true)
-  }, [])
+  }, [autoSendVoice])
 
   const toggleVoice = () => {
     if (isListening) {

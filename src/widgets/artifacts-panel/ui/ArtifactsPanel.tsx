@@ -87,6 +87,12 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   const handleSendEdit = useCallback(async (instruction: string) => {
     if (!displayArtifact || !apiKey) return
 
+    // Auto-enter edit mode so the updated artifact is visible
+    if (!editMode) {
+      if (!currentArtifact && latestArtifact) setCurrentArtifact(latestArtifact)
+      setEditMode(true)
+    }
+
     // Add user message to edit history
     const userMsg: EditMessage = { id: generateId(), role: 'user', content: instruction }
     setEditHistory(prev => [...prev, userMsg])
