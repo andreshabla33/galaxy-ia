@@ -196,9 +196,15 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       {hasEdited && displayArtifact ? (
         // === EDITED ARTIFACT: standalone viewer (fresh mount via key) ===
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div key={`artifact-v${artifactVersion}`} className="w-full" style={{ minHeight: '300px' }}>
-            <ArtifactViewer artifact={displayArtifact} />
-          </div>
+          {isEditing ? (
+            <div className="p-6">
+              <ThinkingIndicator userMessage={editHistory.filter(m => m.role === 'user').pop()?.content || 'Editando artefacto'} />
+            </div>
+          ) : (
+            <div key={`artifact-v${artifactVersion}`} className="w-full" style={{ minHeight: '300px' }}>
+              <ArtifactViewer artifact={displayArtifact} />
+            </div>
+          )}
         </div>
       ) : (
         // === NORMAL: message list ===

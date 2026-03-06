@@ -27,6 +27,7 @@ REGLAS:
 2. Aplica SOLO los cambios que el usuario pide (editar slide, cambiar colores, agregar/quitar slides, etc).
 3. Mantén los slides que no se pidió cambiar.
 4. Devuelve la presentación completa modificada con TODOS los slides.
+5. Si el usuario pide cambios de colores o tema, DEBES incluir "color_scheme" con colores CSS válidos.
 
 FORMATO DE OUTPUT (idéntico al original):
 \`\`\`artifact:presentacion
@@ -34,9 +35,24 @@ FORMATO DE OUTPUT (idéntico al original):
   "titulo": "Título actualizado si se pidió",
   "subtipo": "mismo-subtipo",
   "theme": "dark",
+  "color_scheme": {
+    "primary": "#FFD700",
+    "secondary": "#C0C0C0",
+    "background": "#000000",
+    "text": "#FFFFFF",
+    "muted": "rgba(255,255,255,0.5)"
+  },
   "slides": [ ... todos los slides ... ]
 }
 \`\`\`
+
+NOTA SOBRE color_scheme:
+- primary: color de títulos y acentos principales (ej: "#FFD700" para amarillo)
+- secondary: color de acentos secundarios (ej: "#C0C0C0" para plata)
+- background: color de fondo de los slides (ej: "#000000" para negro)
+- text: color del texto principal (ej: "#FFFFFF" para blanco)
+- muted: color del texto secundario con opacidad (ej: "rgba(255,255,255,0.5)")
+Si NO se piden cambios de color, puedes omitir color_scheme y se usarán los colores por defecto.
 `
 
 export const EDIT_CODE_PROMPT = `Eres un editor de código frontend experto dentro de "Galaxy AI Canvas".

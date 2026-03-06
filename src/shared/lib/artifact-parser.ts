@@ -65,6 +65,7 @@ function buildContenido(type: ArtifactType, parsed: Record<string, unknown>): Re
         slides: parsed.slides || [],
         theme: parsed.theme || 'dark',
         total_slides: Array.isArray(parsed.slides) ? parsed.slides.length : 0,
+        ...(parsed.color_scheme ? { color_scheme: parsed.color_scheme } : {}),
       }
 
     case 'codigo':

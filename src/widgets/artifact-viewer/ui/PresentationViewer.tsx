@@ -19,6 +19,36 @@ interface Slide {
   image_prompt?: string
 }
 
+interface ColorScheme {
+  primary: string    // titles, accents
+  secondary: string  // secondary accents
+  background: string // slide background
+  text: string       // body text
+  muted: string      // subtle text
+}
+
+const DEFAULT_COLORS: ColorScheme = {
+  primary: '#22d3ee',    // cyan-400
+  secondary: '#c084fc',  // purple-400
+  background: 'linear-gradient(135deg, #111827 0%, #1f2937 50%, #111827 100%)',
+  text: 'rgba(255,255,255,0.85)',
+  muted: 'rgba(255,255,255,0.45)',
+}
+
+function parseColorScheme(contenido: Record<string, unknown>): ColorScheme {
+  const cs = contenido.color_scheme as Record<string, string> | undefined
+  if (!cs) return DEFAULT_COLORS
+  return {
+    primary: cs.primary || DEFAULT_COLORS.primary,
+    secondary: cs.secondary || DEFAULT_COLORS.secondary,
+    background: cs.background
+      ? (cs.background.includes('gradient') ? cs.background : `linear-gradient(135deg, ${cs.background} 0%, ${cs.background} 100%)`)
+      : DEFAULT_COLORS.background,
+    text: cs.text || DEFAULT_COLORS.text,
+    muted: cs.muted || DEFAULT_COLORS.muted,
+  }
+}
+
 // Global cache — persists across slide navigation and re-renders
 const imageCache = new Map<string, string>()
 
@@ -157,11 +187,11 @@ interface PresentationViewerProps {
 
 const KNOWN_LAYOUTS = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing']
 
-function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; total: number }) {
+function SlideRenderer({ slide, index, total, colors }: { slide: Slide; index: number; total: number; colors: ColorScheme }) {
   const hasImage = !!slide.image_prompt
 
   return (
-    <div className="w-full aspect-video bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl border border-white/10 flex flex-col relative overflow-hidden">
+    <div className="w-full aspect-video rounded-xl border border-white/10 flex flex-col relative overflow-hidden" style={{ background: colors.background }}>
       {/* Slide number */}
       <div className="absolute bottom-3 right-4 text-white/20 text-xs z-10">
         {index + 1} / {total}
@@ -182,11 +212,11 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {slide.layout === 'title' && (
           <div className="flex items-center gap-8">
             <div className={`${hasImage ? 'flex-1' : 'w-full text-center'}`}>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-300 to-purple-400 bg-clip-text text-transparent mb-4">
+              <h1 className="text-3xl font-bold mb-4" style={{ color: colors.primary }}>
                 {slide.title}
               </h1>
               {slide.subtitle && (
-                <p className="text-lg text-white/50">{slide.subtitle}</p>
+                <p className="text-lg" style={{ color: colors.muted }}>{slide.subtitle}</p>
               )}
             </div>
             {hasImage && (
@@ -202,13 +232,13 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
               <SlideImage prompt={slide.image_prompt!} className="w-[45%] aspect-[4/3] shrink-0" />
             )}
             <div className="flex-1 flex flex-col justify-center">
-              <h2 className="text-2xl font-semibold text-white/90 mb-4">{slide.title}</h2>
-              {slide.content && <p className="text-white/65 text-sm leading-relaxed">{slide.content}</p>}
+              <h2 className="text-2xl font-semibold mb-4" style={{ color: colors.text }}>{slide.title}</h2>
+              {slide.content && <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>{slide.content}</p>}
               {slide.bullets && (
                 <ul className="space-y-2 mt-3">
                   {slide.bullets.map((b, i) => (
-                    <li key={i} className="flex items-start gap-2 text-white/65 text-sm">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-sm" style={{ color: colors.muted }}>
+                      <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colors.primary }} />
                       {b}
                     </li>
                   ))}
@@ -222,13 +252,13 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {slide.layout === 'image-right' && (
           <div className="flex items-center gap-8 h-full">
             <div className="flex-1 flex flex-col justify-center">
-              <h2 className="text-2xl font-semibold text-white/90 mb-4">{slide.title}</h2>
-              {slide.content && <p className="text-white/65 text-sm leading-relaxed">{slide.content}</p>}
+              <h2 className="text-2xl font-semibold mb-4" style={{ color: colors.text }}>{slide.title}</h2>
+              {slide.content && <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>{slide.content}</p>}
               {slide.bullets && (
                 <ul className="space-y-2 mt-3">
                   {slide.bullets.map((b, i) => (
-                    <li key={i} className="flex items-start gap-2 text-white/65 text-sm">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-sm" style={{ color: colors.muted }}>
+                      <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colors.secondary }} />
                       {b}
                     </li>
                   ))}
@@ -244,11 +274,11 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {/* === BULLETS === */}
         {slide.layout === 'bullets' && (
           <div>
-            <h2 className="text-2xl font-semibold text-white/90 mb-6">{slide.title}</h2>
+            <h2 className="text-2xl font-semibold mb-6" style={{ color: colors.primary }}>{slide.title}</h2>
             <ul className="space-y-3">
               {slide.bullets?.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-3 text-white/70">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 mt-2 shrink-0" />
+                <li key={i} className="flex items-start gap-3" style={{ color: colors.text }}>
+                  <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ backgroundColor: colors.secondary }} />
                   <span>{bullet}</span>
                 </li>
               ))}
@@ -259,18 +289,18 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {/* === TWO-COLUMN === */}
         {slide.layout === 'two-column' && (
           <div>
-            <h2 className="text-2xl font-semibold text-white/90 mb-6">{slide.title}</h2>
+            <h2 className="text-2xl font-semibold mb-6" style={{ color: colors.primary }}>{slide.title}</h2>
             <div className="grid grid-cols-2 gap-6">
               {slide.left && (
-                <div className="bg-white/5 rounded-lg p-5 border border-white/10">
-                  <h3 className="text-sm font-semibold text-cyan-300 mb-2">{slide.left.heading}</h3>
-                  <p className="text-white/60 text-sm">{slide.left.content}</p>
+                <div className="rounded-lg p-5 border border-white/10" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: colors.primary }}>{slide.left.heading}</h3>
+                  <p className="text-sm" style={{ color: colors.muted }}>{slide.left.content}</p>
                 </div>
               )}
               {slide.right && (
-                <div className="bg-white/5 rounded-lg p-5 border border-white/10">
-                  <h3 className="text-sm font-semibold text-purple-300 mb-2">{slide.right.heading}</h3>
-                  <p className="text-white/60 text-sm">{slide.right.content}</p>
+                <div className="rounded-lg p-5 border border-white/10" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: colors.secondary }}>{slide.right.heading}</h3>
+                  <p className="text-sm" style={{ color: colors.muted }}>{slide.right.content}</p>
                 </div>
               )}
             </div>
@@ -280,14 +310,14 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {/* === STATS === */}
         {slide.layout === 'stats' && (
           <div>
-            <h2 className="text-2xl font-semibold text-white/90 mb-8 text-center">{slide.title}</h2>
+            <h2 className="text-2xl font-semibold mb-8 text-center" style={{ color: colors.primary }}>{slide.title}</h2>
             <div className="flex justify-center gap-8">
               {slide.stats?.map((stat, i) => (
-                <div key={i} className="text-center bg-black/30 backdrop-blur-sm rounded-xl px-6 py-4 border border-white/[0.08]">
-                  <div className="text-4xl font-bold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
+                <div key={i} className="text-center backdrop-blur-sm rounded-xl px-6 py-4 border border-white/[0.08]" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                  <div className="text-4xl font-bold" style={{ color: colors.primary }}>
                     {stat.value}
                   </div>
-                  <div className="text-sm text-white/50 mt-1">{stat.label}</div>
+                  <div className="text-sm mt-1" style={{ color: colors.muted }}>{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -297,12 +327,12 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {/* === QUOTE === */}
         {slide.layout === 'quote' && (
           <div className="text-center px-8">
-            <div className="text-4xl text-cyan-400/30 mb-2">&ldquo;</div>
-            <p className="text-xl text-white/80 italic leading-relaxed">
+            <div className="text-4xl mb-2" style={{ color: colors.primary, opacity: 0.3 }}>&ldquo;</div>
+            <p className="text-xl italic leading-relaxed" style={{ color: colors.text }}>
               {slide.quote}
             </p>
             {slide.author && (
-              <p className="text-sm text-white/40 mt-4">— {slide.author}</p>
+              <p className="text-sm mt-4" style={{ color: colors.muted }}>— {slide.author}</p>
             )}
           </div>
         )}
@@ -310,9 +340,9 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
         {/* === CLOSING === */}
         {slide.layout === 'closing' && (
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-white/90 mb-4">{slide.title}</h1>
+            <h1 className="text-3xl font-bold mb-4" style={{ color: colors.primary }}>{slide.title}</h1>
             {slide.contact && (
-              <p className="text-white/40">{slide.contact}</p>
+              <p style={{ color: colors.muted }}>{slide.contact}</p>
             )}
           </div>
         )}
@@ -346,6 +376,7 @@ function SlideRenderer({ slide, index, total }: { slide: Slide; index: number; t
 
 export function PresentationViewer({ contenido, titulo }: PresentationViewerProps) {
   const slides = (Array.isArray(contenido.slides) ? contenido.slides : []) as Slide[]
+  const colors = useMemo(() => parseColorScheme(contenido), [contenido])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [exporting, setExporting] = useState(false)
 
@@ -432,6 +463,7 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
             slide={slides[currentSlide]}
             index={currentSlide}
             total={slides.length}
+            colors={colors}
           />
         </div>
       </div>

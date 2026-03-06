@@ -9,6 +9,7 @@ export async function POST(req: Request) {
     }
 
     const FIRECRAWL_KEY = process.env.FIRECRAWL_KEY;
+    console.log(`[WEB-SEARCH] Key present: ${!!FIRECRAWL_KEY} | Key prefix: ${FIRECRAWL_KEY?.slice(0, 5)}...`);
     if (!FIRECRAWL_KEY) {
       return Response.json({ error: 'FIRECRAWL_KEY no configurada' }, { status: 500 });
     }
