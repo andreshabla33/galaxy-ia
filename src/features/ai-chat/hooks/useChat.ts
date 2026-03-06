@@ -5,6 +5,7 @@ import type { ChatMessage } from '@/entities/message'
 import { generateId } from '@/shared/lib/generate-id'
 import { parseArtifactFromResponse, type ParsedArtifact } from '@/shared/lib/artifact-parser'
 import { buildDynamicPrompt } from '@/shared/lib/prompt-loader'
+import { needsWebSearch, performWebSearch, formatSearchContext } from '@/shared/lib/web-search'
 
 interface UseChatOptions {
   apiKey: string;
@@ -63,7 +64,18 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatO
     try {
       // Build dynamic prompt: base + type-specific from Supabase (cached)
       console.log('[useChat] Building dynamic prompt for:', message.content.slice(0, 50))
-      const dynamicPrompt = overrideSystemPrompt || await buildDynamicPrompt(message.content)
+      let dynamicPrompt = overrideSystemPrompt || await buildDynamicPrompt(message.content)
+
+      // Web search: auto-detect if user needs research and enrich prompt with results
+      if (!overrideSystemPrompt && needsWebSearch(message.content)) {
+        console.log('[useChat] Web search triggered for:', message.content.slice(0, 60))
+        const results = await performWebSearch(message.content)
+        if (results.length > 0) {
+          dynamicPrompt += formatSearchContext(results)
+          console.log('[useChat] Web context added:', results.length, 'results')
+        }
+      }
+
       console.log('[useChat] Prompt built, length:', dynamicPrompt.length, '| Sending to /api/chat')
 
       const response = await fetch('/api/chat', {

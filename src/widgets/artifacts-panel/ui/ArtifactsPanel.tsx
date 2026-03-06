@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState, useCallback, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { SquareTerminal, X, Pencil, MessageSquare } from 'lucide-react'
+import { SquareTerminal, X } from 'lucide-react'
 import type { ChatMessage } from '@/entities/message'
 import { ArtifactViewer } from '@/widgets/artifact-viewer'
 import { ArtifactEditChat } from '@/widgets/artifact-viewer/ui/ArtifactEditChat'
@@ -26,12 +26,22 @@ interface EditMessage {
   content: string
 }
 
-function AssistantMessage({ content, onArtifactDetected }: { content: string; onArtifactDetected?: (a: ParsedArtifact) => void }) {
-  const artifact = useMemo(() => {
-    const a = parseArtifactFromResponse(content)
-    if (a && onArtifactDetected) onArtifactDetected(a)
-    return a
-  }, [content, onArtifactDetected])
+function AssistantMessage({ content, overrideArtifact, artifactVersion }: {
+  content: string
+  overrideArtifact?: ParsedArtifact | null
+  artifactVersion?: number
+}) {
+  const artifact = useMemo(() => parseArtifactFromResponse(content), [content])
+
+  // If there's an override artifact (from editing), show that instead
+  // Use artifactVersion as key to force React to unmount/remount the viewer
+  if (overrideArtifact && artifact) {
+    return (
+      <div className="w-full rounded-xl border border-white/10 bg-zinc-900/80 overflow-hidden" style={{ minHeight: '300px' }}>
+        <ArtifactViewer key={`edited-${artifactVersion}`} artifact={overrideArtifact} />
+      </div>
+    )
+  }
 
   // Completed artifact → show viewer
   if (artifact) {
@@ -43,7 +53,6 @@ function AssistantMessage({ content, onArtifactDetected }: { content: string; on
   }
 
   // If content contains artifact markers (streaming in progress), hide raw text
-  // The ThinkingIndicator will handle the UX during this phase
   if (content.includes('```artifact:') || content.includes('```artifact')) {
     return null
   }
@@ -65,12 +74,15 @@ function AssistantMessage({ content, onArtifactDetected }: { content: string; on
 
 export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }: ArtifactsPanelProps) {
   const { apiKey, provider } = useAppStore()
-  const [editMode, setEditMode] = useState(false)
   const [currentArtifact, setCurrentArtifact] = useState<ParsedArtifact | null>(null)
+  const [artifactVersion, setArtifactVersion] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [editHistory, setEditHistory] = useState<EditMessage[]>([])
 
-  // Detectar el último artefacto de los mensajes
+  // Track the artifact source ref so handleSendEdit always uses latest
+  const artifactRef = useRef<ParsedArtifact | null>(null)
+
+  // Detect latest artifact from messages
   const latestArtifact = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant') {
@@ -81,17 +93,24 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
     return null
   }, [messages])
 
-  // Use edited artifact if available, otherwise latest from messages
+  // The artifact to display and edit: edited version > latest from messages
   const displayArtifact = currentArtifact || latestArtifact
+  artifactRef.current = displayArtifact
+
+  // Find which message has the artifact (to overlay the edited version)
+  const artifactMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        const a = parseArtifactFromResponse(messages[i].content)
+        if (a) return messages[i].id
+      }
+    }
+    return null
+  }, [messages])
 
   const handleSendEdit = useCallback(async (instruction: string) => {
-    if (!displayArtifact || !apiKey) return
-
-    // Auto-enter edit mode so the updated artifact is visible
-    if (!editMode) {
-      if (!currentArtifact && latestArtifact) setCurrentArtifact(latestArtifact)
-      setEditMode(true)
-    }
+    const artifact = artifactRef.current
+    if (!artifact || !apiKey) return
 
     // Add user message to edit history
     const userMsg: EditMessage = { id: generateId(), role: 'user', content: instruction }
@@ -99,7 +118,7 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
     setIsEditing(true)
 
     try {
-      const editSystemPrompt = buildEditSystemPrompt(displayArtifact.type, displayArtifact.raw)
+      const editSystemPrompt = buildEditSystemPrompt(artifact.type, artifact.raw)
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -128,7 +147,9 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       // Parse the edited artifact
       const edited = parseArtifactFromResponse(fullContent)
       if (edited) {
+        // Increment version to force ArtifactViewer remount (fresh state)
         setCurrentArtifact(edited)
+        setArtifactVersion(v => v + 1)
         setEditHistory(prev => [...prev, {
           id: generateId(),
           role: 'assistant',
@@ -141,26 +162,17 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
           content: '⚠ No pude aplicar los cambios. Intenta ser más específico.'
         }])
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
       setEditHistory(prev => [...prev, {
         id: generateId(),
         role: 'assistant',
-        content: `⚠ Error: ${err.message}`
+        content: `⚠ Error: ${msg}`
       }])
     } finally {
       setIsEditing(false)
     }
-  }, [displayArtifact, apiKey, provider])
-
-  const toggleEditMode = () => {
-    if (!editMode) {
-      // Entering edit mode
-      if (latestArtifact && !currentArtifact) {
-        setCurrentArtifact(latestArtifact)
-      }
-    }
-    setEditMode(!editMode)
-  }
+  }, [apiKey, provider])
 
   return (
     <div className={`border-l border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl flex flex-col transition-all duration-500 ${isOpen && messages.length > 0 ? 'w-[45%] min-w-[450px] max-w-[700px] opacity-100' : 'w-0 min-w-0 opacity-0 overflow-hidden'} h-full shrink-0`}>
@@ -168,19 +180,6 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.06]">
         <SquareTerminal className="w-4 h-4 text-indigo-400" />
         <h2 className="text-sm font-medium text-white/60 flex-1">Espacio de Trabajo</h2>
-        {displayArtifact && (
-          <button
-            onClick={toggleEditMode}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all ${
-              editMode
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                : 'bg-white/[0.04] text-white/40 border border-white/[0.08] hover:bg-white/[0.08] hover:text-white/60'
-            }`}
-          >
-            {editMode ? <MessageSquare className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
-            {editMode ? 'Editando' : 'Editar'}
-          </button>
-        )}
         <button
           onClick={onClose}
           className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/30 hover:text-white/70 transition-colors"
@@ -189,55 +188,38 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
         </button>
       </div>
 
-      {/* Content area */}
-      {editMode && displayArtifact ? (
-        // === EDIT MODE: Focused artifact + edit chat ===
-        <>
-          <div className="flex-1 overflow-y-auto">
-            <div className="w-full" style={{ minHeight: '300px' }}>
-              <ArtifactViewer artifact={displayArtifact} />
-            </div>
-          </div>
-          <ArtifactEditChat
-            onSendEdit={handleSendEdit}
-            isEditing={isEditing}
-            editHistory={editHistory}
-            artifactType={displayArtifact.type}
-          />
-        </>
-      ) : (
-        // === NORMAL MODE: Message list + always-visible edit chat ===
-        <>
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-4">
-            {messages.map((m) => (
-              <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {m.role === 'user' ? (
-                  <div className="max-w-[90%] rounded-2xl p-4 bg-indigo-500/20 text-indigo-100 border border-indigo-500/20">
-                    <p className="text-sm">{m.content}</p>
-                  </div>
-                ) : (
-                  <AssistantMessage content={m.content} />
-                )}
+      {/* Messages + artifact viewer */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-4">
+        {messages.map((m) => (
+          <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+            {m.role === 'user' ? (
+              <div className="max-w-[90%] rounded-2xl p-4 bg-indigo-500/20 text-indigo-100 border border-indigo-500/20">
+                <p className="text-sm">{m.content}</p>
               </div>
-            ))}
-
-            {isLoading && (() => {
-              // Find last user message for context-aware thinking steps
-              const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || ''
-              return <ThinkingIndicator userMessage={lastUserMsg} />
-            })()}
+            ) : (
+              <AssistantMessage
+                content={m.content}
+                overrideArtifact={m.id === artifactMessageId ? currentArtifact : undefined}
+                artifactVersion={artifactVersion}
+              />
+            )}
           </div>
+        ))}
 
-          {/* Always-visible edit chat when artifact exists */}
-          {displayArtifact && !isLoading && (
-            <ArtifactEditChat
-              onSendEdit={handleSendEdit}
-              isEditing={isEditing}
-              editHistory={editHistory}
-              artifactType={displayArtifact.type}
-            />
-          )}
-        </>
+        {isLoading && (() => {
+          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || ''
+          return <ThinkingIndicator userMessage={lastUserMsg} />
+        })()}
+      </div>
+
+      {/* Always-visible edit chat when artifact exists */}
+      {displayArtifact && !isLoading && (
+        <ArtifactEditChat
+          onSendEdit={handleSendEdit}
+          isEditing={isEditing}
+          editHistory={editHistory}
+          artifactType={displayArtifact.type}
+        />
       )}
     </div>
   )
