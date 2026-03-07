@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 
 export type IntentType = 'documento' | 'presentacion' | 'codigo' | 'imagen' | null
+export type IntentTypeStrict = 'documento' | 'presentacion' | 'codigo' | 'imagen' | 'general'
 
 // Cache en memoria — los prompts no cambian frecuentemente
 const promptCache = new Map<string, { prompt: string; ts: number }>()
@@ -53,6 +54,44 @@ export function detectIntent(message: string): IntentType {
     if (patterns.some(p => p.test(message))) return type
   }
   return null
+}
+
+/**
+ * Hybrid intent detection: regex fast path → LLM fallback.
+ * Si el regex no matchea, pregunta al LLM con un prompt corto (~50ms).
+ */
+export async function detectIntentHybrid(
+  message: string,
+  apiKey: string,
+  provider: string
+): Promise<{ intent: IntentType; source: 'regex' | 'llm' | 'fallback' }> {
+  // 1. Fast path: regex
+  const regexResult = detectIntent(message)
+  if (regexResult) {
+    return { intent: regexResult, source: 'regex' }
+  }
+
+  // 2. LLM fallback: classify via API
+  try {
+    const res = await fetch('/api/classify-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, apiKey, provider }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const llmIntent = data.intent as string
+      if (llmIntent && llmIntent !== 'general') {
+        console.log(`[prompt-loader] LLM classified: ${llmIntent}`)
+        return { intent: llmIntent as IntentType, source: 'llm' }
+      }
+    }
+  } catch (err) {
+    console.warn('[prompt-loader] LLM classification failed:', err)
+  }
+
+  // 3. Fallback: general
+  return { intent: null, source: 'fallback' }
 }
 
 /**
@@ -119,9 +158,24 @@ async function loadPromptFromDB(tipo: string): Promise<string | null> {
  * 1. Intenta cache (instantáneo)
  * 2. Si no hay cache, carga de Supabase con timeout 3s, fallback si falla
  */
-export async function buildDynamicPrompt(userMessage: string): Promise<string> {
-  const intent = detectIntent(userMessage)
-  console.log(`[prompt-loader] Intent: ${intent || 'general'}`)
+export async function buildDynamicPrompt(
+  userMessage: string,
+  apiKey?: string,
+  provider?: string
+): Promise<string> {
+  // Hybrid: regex first, then LLM if available
+  let intent: IntentType
+  let source: string
+
+  if (apiKey && provider) {
+    const result = await detectIntentHybrid(userMessage, apiKey, provider)
+    intent = result.intent
+    source = result.source
+  } else {
+    intent = detectIntent(userMessage)
+    source = 'regex'
+  }
+  console.log(`[prompt-loader] Intent: ${intent || 'general'} (via ${source})`)
 
   // Fast path: check cache first (synchronous)
   const cachedBase = promptCache.get('base')

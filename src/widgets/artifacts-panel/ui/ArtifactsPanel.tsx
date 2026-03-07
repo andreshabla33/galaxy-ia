@@ -182,7 +182,7 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   const hasEdited = currentArtifact !== null
 
   return (
-    <div className={`border-l border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl flex flex-col transition-all duration-500 ${isOpen && messages.length > 0 ? 'w-[45%] min-w-[450px] max-w-[700px] opacity-100' : 'w-0 min-w-0 opacity-0 overflow-hidden'} h-full shrink-0`}>
+    <div className={`border-l border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl flex flex-col transition-all duration-500 ${isOpen && messages.length > 0 ? 'w-full lg:w-[45%] lg:min-w-[450px] lg:max-w-[700px] opacity-100' : 'w-0 min-w-0 opacity-0 overflow-hidden'} h-full shrink-0`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.06]">
         <SquareTerminal className="w-4 h-4 text-indigo-400" />

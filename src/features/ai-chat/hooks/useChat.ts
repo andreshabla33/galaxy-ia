@@ -64,7 +64,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatO
     try {
       // Build dynamic prompt: base + type-specific from Supabase (cached)
       console.log('[useChat] Building dynamic prompt for:', message.content.slice(0, 50))
-      let dynamicPrompt = overrideSystemPrompt || await buildDynamicPrompt(message.content)
+      let dynamicPrompt = overrideSystemPrompt || await buildDynamicPrompt(message.content, apiKey, provider)
 
       // Web search: auto-detect if user needs research and enrich prompt with results
       if (!overrideSystemPrompt && needsWebSearch(message.content)) {
