@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { LogOut, Settings, User } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { signOut } from '@/shared/lib/supabase'
 import { useAppStore } from '@/features/settings'
 import type { User as AuthUser } from '@supabase/supabase-js'

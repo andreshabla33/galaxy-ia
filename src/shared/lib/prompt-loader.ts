@@ -97,7 +97,8 @@ export async function detectIntentHybrid(
 /**
  * Timeout wrapper — nunca esperamos más de 3s por Supabase
  */
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T): Promise<T> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([
     Promise.resolve(promise),
     new Promise<T>(resolve => setTimeout(() => {
@@ -206,16 +207,17 @@ export async function buildDynamicPrompt(
 }
 
 // Pre-warm cache in background — doesn't block the user
-let preWarmingInProgress = false
-function preWarmCache() {
-  if (preWarmingInProgress) return
-  preWarmingInProgress = true
+let _preWarmingInProgress = false
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _preWarmCache() {
+  if (_preWarmingInProgress) return
+  _preWarmingInProgress = true
 
   const types = ['base', 'documento', 'presentacion', 'codigo', 'imagen']
   Promise.all(types.map(tipo => loadPromptFromDB(tipo)))
     .then(() => console.log('[prompt-loader] Cache pre-warmed'))
     .catch(err => console.warn('[prompt-loader] Pre-warm failed:', err))
-    .finally(() => { preWarmingInProgress = false })
+    .finally(() => { _preWarmingInProgress = false })
 }
 
 /**

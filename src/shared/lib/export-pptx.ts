@@ -27,6 +27,7 @@ const COLORS = {
   white: 'FFFFFF',
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addTitleSlide(pptx: any, slide: Slide) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
@@ -46,6 +47,7 @@ function addTitleSlide(pptx: any, slide: Slide) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addBulletsSlide(pptx: any, slide: Slide) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
@@ -68,6 +70,7 @@ function addBulletsSlide(pptx: any, slide: Slide) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addTwoColumnSlide(pptx: any, slide: Slide) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
@@ -89,6 +92,7 @@ function addTwoColumnSlide(pptx: any, slide: Slide) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addStatsSlide(pptx: any, slide: Slide) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
@@ -113,6 +117,7 @@ function addStatsSlide(pptx: any, slide: Slide) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addQuoteSlide(pptx: any, slide: Slide) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
@@ -131,6 +136,7 @@ function addQuoteSlide(pptx: any, slide: Slide) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addClosingSlide(pptx: any, slide: Slide) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }

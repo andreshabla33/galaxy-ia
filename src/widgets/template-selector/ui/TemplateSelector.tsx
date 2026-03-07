@@ -28,7 +28,7 @@ export function TemplateSelector({ onSelectTemplate, onClose }: TemplateSelector
     onSelectTemplate(selectedTemplate, topic.trim())
   }
 
-  const activeColor = TYPE_TABS.find(t => t.type === activeType)?.color || 'indigo'
+  const _activeColor = TYPE_TABS.find(t => t.type === activeType)?.color || 'indigo' // eslint-disable-line @typescript-eslint/no-unused-vars
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

@@ -149,7 +149,7 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       // Parse the edited artifact
       const edited = parseArtifactFromResponse(fullContent)
       if (edited) {
-        console.log('[Edit] Parsed OK! New title:', edited.titulo, '| slides:', (edited.contenido as any)?.total_slides)
+        console.log('[Edit] Parsed OK! New title:', edited.titulo, '| slides:', (edited.contenido as Record<string, unknown>)?.total_slides)
         setCurrentArtifact(edited)
         setArtifactVersion(v => v + 1)
         setEditHistory(prev => [...prev, {

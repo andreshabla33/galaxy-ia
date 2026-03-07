@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     console.log(`[WEB-SEARCH] Results: ${data.data?.length || 0}`);
 
     // Extract relevant info from results
-    const results = (data.data || []).map((r: any) => ({
+    const results = (data.data || []).map((r: Record<string, string>) => ({
       title: r.title || '',
       url: r.url || '',
       content: r.markdown?.slice(0, 2000) || r.description || '',

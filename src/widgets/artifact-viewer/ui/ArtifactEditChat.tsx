@@ -55,6 +55,7 @@ const QUICK_ACTIONS: Record<ArtifactType, { label: string; prompt: string; icon:
 export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactType }: ArtifactEditChatProps) {
   const [input, setInput] = useState('')
   const [isListening, setIsListening] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const historyEndRef = useRef<HTMLDivElement>(null)
@@ -69,7 +70,7 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
 
   const stopVoice = useCallback(() => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop() } catch (e) { /* ignore */ }
+      try { recognitionRef.current.stop() } catch { /* ignore */ }
       recognitionRef.current = null
     }
     if (silenceTimerRef.current) {
@@ -90,6 +91,7 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
   }, [isEditing, onSendEdit, stopVoice])
 
   const startVoice = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) return
 
@@ -98,6 +100,7 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
     recognition.interimResults = true
     recognition.lang = 'es-ES'
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       let transcript = ''
       for (let i = 0; i < event.results.length; i++) {
@@ -114,6 +117,7 @@ export function ArtifactEditChat({ onSendEdit, isEditing, editHistory, artifactT
       }, 3000)
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       if (event.error !== 'aborted') {
         console.error('Edit voice error:', event.error)

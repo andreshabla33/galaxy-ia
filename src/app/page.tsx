@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 
 // FSD imports: features → widgets → shared (dependencia unidireccional)
