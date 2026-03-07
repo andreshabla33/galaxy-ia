@@ -26,6 +26,11 @@ interface EditMessage {
   content: string
 }
 
+// Module-level cache — survives Fast Refresh / HMR (not inside component state)
+let _cachedArtifact: ParsedArtifact | null = null
+let _cachedVersion = 0
+let _cachedHistory: EditMessage[] = []
+
 function AssistantMessage({ content }: { content: string }) {
   const artifact = useMemo(() => parseArtifactFromResponse(content), [content])
 
@@ -60,13 +65,19 @@ function AssistantMessage({ content }: { content: string }) {
 
 export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }: ArtifactsPanelProps) {
   const { apiKey, provider } = useAppStore()
-  const [currentArtifact, setCurrentArtifact] = useState<ParsedArtifact | null>(null)
-  const [artifactVersion, setArtifactVersion] = useState(0)
+  // Initialize from module-level cache (survives Fast Refresh / HMR)
+  const [currentArtifact, setCurrentArtifact] = useState<ParsedArtifact | null>(_cachedArtifact)
+  const [artifactVersion, setArtifactVersion] = useState(_cachedVersion)
   const [isEditing, setIsEditing] = useState(false)
-  const [editHistory, setEditHistory] = useState<EditMessage[]>([])
+  const [editHistory, setEditHistory] = useState<EditMessage[]>(_cachedHistory)
 
   // Track the artifact source ref so handleSendEdit always uses latest
   const artifactRef = useRef<ParsedArtifact | null>(null)
+
+  // Sync to module-level cache so HMR doesn't lose state
+  _cachedArtifact = currentArtifact
+  _cachedVersion = artifactVersion
+  _cachedHistory = editHistory
 
   // Detect latest artifact from messages
   const latestArtifact = useMemo(() => {
@@ -178,7 +189,7 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
         <h2 className="text-sm font-medium text-white/60 flex-1">Espacio de Trabajo</h2>
         {hasEdited && (
           <button
-            onClick={() => { setCurrentArtifact(null); setEditHistory([]); setArtifactVersion(0) }}
+            onClick={() => { setCurrentArtifact(null); setEditHistory([]); setArtifactVersion(0); _cachedArtifact = null; _cachedHistory = []; _cachedVersion = 0 }}
             className="text-[10px] px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-white/30 hover:text-white/50 transition-all"
           >
             Ver original
@@ -225,6 +236,11 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
             const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || ''
             return <ThinkingIndicator userMessage={lastUserMsg} />
           })()}
+
+          {/* ThinkingIndicator during first edit (before hasEdited becomes true) */}
+          {isEditing && !isLoading && (
+            <ThinkingIndicator userMessage={editHistory.filter(m => m.role === 'user').pop()?.content || 'Editando artefacto'} />
+          )}
         </div>
       )}
 
