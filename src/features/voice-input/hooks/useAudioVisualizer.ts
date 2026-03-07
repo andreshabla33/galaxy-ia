@@ -90,6 +90,7 @@ export function useAudioVisualizer(options?: AudioVisualizerOptions): AudioVisua
   const lastTranscriptRef = useRef('')
 
   const pitchSamplesRef = useRef<number[]>([])
+  const recordingStartRef = useRef<number>(0)
 
   const stopListening = useCallback(() => {
     if (animationFrameRef.current) {
@@ -127,6 +128,7 @@ export function useAudioVisualizer(options?: AudioVisualizerOptions): AudioVisua
       setTranscript('')
       hasSpokeRef.current = false
       pitchSamplesRef.current = []
+      recordingStartRef.current = Date.now()
 
       // === INICIO PARALELO: SpeechRecognition + Audio al mismo tiempo ===
       // SpeechRecognition conecta con servidores de Google (latencia de red),
@@ -176,6 +178,10 @@ export function useAudioVisualizer(options?: AudioVisualizerOptions): AudioVisua
 
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext
       audioContextRef.current = new AudioContext()
+      // iOS Safari requires explicit resume after user gesture
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume()
+      }
       analyserRef.current = audioContextRef.current.createAnalyser()
       
       analyserRef.current.fftSize = 2048
@@ -257,7 +263,10 @@ export function useAudioVisualizer(options?: AudioVisualizerOptions): AudioVisua
         setVolume(prev => prev + (vol - prev) * 0.2)
 
         const now = Date.now()
-        if (vol > silenceThreshold && hasRealSpeechRef.current) {
+        const recordingDuration = now - recordingStartRef.current
+
+        // Mark as "spoke" if: speech recognition produced text OR sustained volume after 1.5s of recording
+        if (vol > silenceThreshold && (hasRealSpeechRef.current || recordingDuration > 1500)) {
           hasSpokeRef.current = true
           silenceStartRef.current = now
         } else if (hasSpokeRef.current && silenceStartRef.current > 0) {

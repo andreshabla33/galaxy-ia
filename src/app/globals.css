@@ -24,9 +24,18 @@ html {
   background: #000;
 }
 
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   
   .custom-scrollbar::-webkit-scrollbar {

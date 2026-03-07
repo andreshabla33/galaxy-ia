@@ -81,7 +81,7 @@ export default function Home() {
   const { isMobile, isTablet, isDesktop } = useMediaQuery()
   const [panelOpen, setPanelOpen] = useState(true)
   const [showTemplates, setShowTemplates] = useState(false)
-  const [activeTab, setActiveTab] = useState<'galaxy' | 'work'>('galaxy')
+  const [showArtifactOverlay, setShowArtifactOverlay] = useState(false)
   const inputRef = useRef<string>('')
   const stopListeningRef = useRef<(() => void) | null>(null)
 
@@ -222,18 +222,18 @@ export default function Home() {
     append({ role: 'user', content: fullPrompt })
   }
 
-  // Auto-switch to work tab when artifacts arrive (tablet/mobile)
+  // Auto-open artifact overlay when artifacts arrive (tablet/mobile)
   useEffect(() => {
-    if (!isDesktop && messages.length > 0 && lastArtifact) {
-      setActiveTab('work')
+    if (!isDesktop && lastArtifact) {
+      setShowArtifactOverlay(true)
     }
-  }, [lastArtifact, isDesktop, messages.length])
+  }, [lastArtifact, isDesktop])
 
   // Galaxy + Chat input section (reusable across layouts)
   const galaxyChatSection = (
-    <div className={`flex-1 flex flex-col justify-end ${isMobile ? 'p-4 pb-6' : 'p-8 pb-12'}`}>
+    <div className={`flex-1 flex flex-col ${isMobile ? 'justify-center' : 'justify-end'} ${isMobile ? 'px-4 pb-4' : 'p-8 pb-12'}`}>
       <div className={`${isMobile ? 'w-full' : isTablet ? 'max-w-xl mx-auto w-full' : 'max-w-2xl mx-auto w-full'}`}>
-        <h1 className={`${isMobile ? 'text-2xl' : 'text-4xl'} font-light mb-8 transition-all duration-700 min-h-[48px] ${isListening ? 'text-indigo-300 scale-105 transform translate-y-[-10px] opacity-100' : isLoading ? '' : ''}`}>
+        <h1 className={`${isMobile ? 'text-xl text-center' : 'text-4xl'} font-light mb-6 transition-all duration-700 min-h-[36px] md:min-h-[48px] ${isListening ? 'text-indigo-300 scale-105 transform translate-y-[-10px] opacity-100' : isLoading ? '' : ''}`}>
           {isListening ? (
             <span className="text-indigo-300">Escuchando tu idea...</span>
           ) : isLoading ? (
@@ -260,7 +260,7 @@ export default function Home() {
         )}
 
         {/* Template button */}
-        <div className="mb-3 flex gap-2">
+        <div className={`mb-3 flex gap-2 ${isMobile ? 'justify-center' : ''}`}>
           <button
             onClick={() => setShowTemplates(true)}
             className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white/35 hover:bg-white/[0.06] hover:text-white/55 hover:border-white/[0.12] transition-all flex items-center gap-1.5"
@@ -294,10 +294,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Galaxy Canvas — always rendered, visibility controlled */}
-      <div className={`${!isDesktop && activeTab !== 'galaxy' ? 'hidden' : ''}`}>
-        <GalaxyCanvas isListening={isListening || isLoading} volume={isLoading ? 0.3 : volume} frequencyRef={frequencyRef} artifactType={lastArtifact?.type ?? null} panelOpen={isDesktop && panelOpen && messages.length > 0} />
-      </div>
+      {/* Galaxy Canvas — always rendered as background */}
+      <GalaxyCanvas isListening={isListening || isLoading} volume={isLoading ? 0.3 : volume} frequencyRef={frequencyRef} artifactType={lastArtifact?.type ?? null} panelOpen={isDesktop && panelOpen && messages.length > 0} />
 
       {/* ═══ DESKTOP LAYOUT: side-by-side ═══ */}
       {isDesktop && (
@@ -312,81 +310,57 @@ export default function Home() {
         </div>
       )}
 
-      {/* ═══ TABLET LAYOUT: tab toggle ═══ */}
+      {/* ═══ TABLET LAYOUT: galaxy + chat, overlay for artifacts ═══ */}
       {isTablet && (
         <div className="flex flex-col w-full h-screen relative z-10">
-          {/* Tab bar */}
-          <div className="flex border-b border-white/[0.08] bg-zinc-950/80 backdrop-blur-xl shrink-0">
-            <button
-              onClick={() => setActiveTab('galaxy')}
-              className={`flex-1 py-3 text-sm font-medium transition-all ${activeTab === 'galaxy' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-white/40 hover:text-white/60'}`}
-            >
-              🌌 Galaxy
-            </button>
-            <button
-              onClick={() => setActiveTab('work')}
-              className={`flex-1 py-3 text-sm font-medium transition-all relative ${activeTab === 'work' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-white/40 hover:text-white/60'}`}
-            >
-              📄 Trabajo
-              {messages.length > 0 && activeTab !== 'work' && (
-                <span className="absolute top-2 right-[30%] w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              )}
-            </button>
-          </div>
+          {galaxyChatSection}
 
-          {/* Tab content */}
-          <div className="flex-1 overflow-hidden">
-            {activeTab === 'galaxy' ? (
-              galaxyChatSection
-            ) : (
-              <ArtifactsPanel
-                messages={messages}
-                isLoading={isLoading}
-                isOpen={true}
-                onClose={() => setActiveTab('galaxy')}
-              />
-            )}
-          </div>
+          {/* Artifact overlay */}
+          {showArtifactOverlay && messages.length > 0 && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-in fade-in">
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                  <span className="text-sm text-white/60">Resultado</span>
+                  <button onClick={() => setShowArtifactOverlay(false)} className="text-white/40 hover:text-white text-xl px-2">✕</button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <ArtifactsPanel
+                    messages={messages}
+                    isLoading={isLoading}
+                    isOpen={true}
+                    onClose={() => setShowArtifactOverlay(false)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ═══ MOBILE LAYOUT: full screen + bottom nav ═══ */}
+      {/* ═══ MOBILE LAYOUT: galaxy + centered chat, fullscreen overlay for artifacts ═══ */}
       {isMobile && (
         <div className="flex flex-col w-full h-screen relative z-10">
-          {/* View content */}
-          <div className="flex-1 overflow-hidden">
-            {activeTab === 'galaxy' ? (
-              galaxyChatSection
-            ) : (
-              <ArtifactsPanel
-                messages={messages}
-                isLoading={isLoading}
-                isOpen={true}
-                onClose={() => setActiveTab('galaxy')}
-              />
-            )}
-          </div>
+          {galaxyChatSection}
 
-          {/* Bottom navigation */}
-          <div className="flex border-t border-white/[0.08] bg-zinc-950/90 backdrop-blur-xl shrink-0 safe-area-bottom">
-            <button
-              onClick={() => setActiveTab('galaxy')}
-              className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-all ${activeTab === 'galaxy' ? 'text-indigo-400' : 'text-white/30'}`}
-            >
-              <span className="text-lg">🌌</span>
-              <span className="text-[10px]">Galaxy</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('work')}
-              className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-all relative ${activeTab === 'work' ? 'text-indigo-400' : 'text-white/30'}`}
-            >
-              <span className="text-lg">📄</span>
-              <span className="text-[10px]">Trabajo</span>
-              {messages.length > 0 && activeTab !== 'work' && (
-                <span className="absolute top-1 right-[30%] w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              )}
-            </button>
-          </div>
+          {/* Artifact fullscreen overlay — slides up when artifact is generated */}
+          {showArtifactOverlay && messages.length > 0 && (
+            <div className="fixed inset-0 z-50 bg-zinc-950/95 backdrop-blur-md" style={{ animation: 'slideUp 0.3s ease-out' }}>
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+                  <span className="text-sm text-white/60">Resultado</span>
+                  <button onClick={() => setShowArtifactOverlay(false)} className="text-white/40 hover:text-white text-xl px-2">✕</button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <ArtifactsPanel
+                    messages={messages}
+                    isLoading={isLoading}
+                    isOpen={true}
+                    onClose={() => setShowArtifactOverlay(false)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </main>
