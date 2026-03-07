@@ -11,7 +11,7 @@ const INTENT_PATTERNS: { type: IntentType; patterns: RegExp[] }[] = [
   {
     type: 'presentacion',
     patterns: [
-      /presentaci[oó]n/i, /slides?/i, /diapositivas?/i,
+      /presentaci/i, /slides?/i, /diapositivas?/i,
       /pitch\s*deck/i, /keynote/i, /powerpoint/i, /pptx?/i,
     ],
   },
