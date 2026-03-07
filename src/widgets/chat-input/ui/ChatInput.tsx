@@ -29,29 +29,29 @@ export default function ChatInput({
         <button 
           type="button"
           onClick={onToggleRecording}
-          className={`p-3 rounded-xl transition-colors ${
+          className={`p-3 md:p-3 rounded-xl transition-colors shrink-0 ${
             isListening 
               ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' 
               : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'
           }`}
           title={isListening ? 'Detener grabación' : 'Iniciar grabación'}
         >
-          {isListening ? <StopCircle className="w-6 h-6 animate-pulse" /> : <Mic className="w-6 h-6" />}
+          {isListening ? <StopCircle className="w-6 h-6 md:w-6 md:h-6 animate-pulse" /> : <Mic className="w-6 h-6 md:w-6 md:h-6" />}
         </button>
         <input 
           type="text" 
           value={input}
           onChange={onInputChange}
-          placeholder={isListening ? 'Habla ahora... di "listo" o "enviar" al terminar' : "Describe lo que quieres crear, o presiona el micrófono..."}
+          placeholder={isListening ? 'Habla ahora... di "listo"' : "Describe lo que quieres crear..."}
           disabled={isListening || isLoading}
-          className="flex-1 bg-transparent border-none outline-none px-4 text-zinc-200 placeholder-zinc-500 disabled:opacity-50"
+          className="flex-1 min-w-0 bg-transparent border-none outline-none px-3 md:px-4 text-sm md:text-base text-zinc-200 placeholder-zinc-500 disabled:opacity-50"
         />
         {isListening ? (
           <button 
             type="button"
             onClick={onSendVoice}
             disabled={!input.trim()}
-            className={`p-3 rounded-xl transition-all ${
+            className={`p-3 rounded-xl transition-all shrink-0 ${
               input.trim() 
                 ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-white' 
                 : 'text-zinc-600 opacity-30'
@@ -64,7 +64,7 @@ export default function ChatInput({
           <button 
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="p-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+            className="p-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent shrink-0"
           >
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>

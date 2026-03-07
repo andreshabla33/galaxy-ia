@@ -191,9 +191,9 @@ function SlideRenderer({ slide, index, total, colors }: { slide: Slide; index: n
   const hasImage = !!slide.image_prompt
 
   return (
-    <div className="w-full aspect-video rounded-xl border border-white/10 flex flex-col relative overflow-hidden" style={{ background: colors.background }}>
+    <div className="w-full aspect-video md:aspect-video rounded-xl border border-white/10 flex flex-col relative overflow-hidden" style={{ background: colors.background }}>
       {/* Slide number */}
-      <div className="absolute bottom-3 right-4 text-white/20 text-xs z-10">
+      <div className="absolute bottom-2 right-3 md:bottom-3 md:right-4 text-white/20 text-[10px] md:text-xs z-10">
         {index + 1} / {total}
       </div>
 
@@ -206,7 +206,7 @@ function SlideRenderer({ slide, index, total, colors }: { slide: Slide; index: n
       )}
 
       {/* Content based on layout */}
-      <div className="flex-1 flex flex-col justify-center px-10 py-8 relative z-[1]">
+      <div className="flex-1 flex flex-col justify-center px-4 py-4 md:px-10 md:py-8 relative z-[1]">
 
         {/* === TITLE === */}
         {slide.layout === 'title' && (
@@ -457,7 +457,7 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
       </div>
 
       {/* Slide display */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="max-w-4xl mx-auto">
           <SlideRenderer
             slide={slides[currentSlide]}
@@ -469,21 +469,21 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-center gap-4 px-6 py-3 border-t border-white/10">
+      <div className="flex items-center justify-center gap-2 md:gap-4 px-3 md:px-6 py-2 md:py-3 border-t border-white/10">
         <button
           onClick={() => setCurrentSlide(Math.max(0, currentSlide - 1))}
           disabled={currentSlide === 0}
-          className="px-3 py-1.5 text-sm rounded bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="px-2 md:px-3 py-1.5 text-xs md:text-sm rounded bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
-          ← Anterior
+          ←{' '}<span className="hidden sm:inline">Anterior</span>
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 md:gap-1.5 overflow-x-auto max-w-[40vw] md:max-w-none">
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrentSlide(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
+              className={`w-2 h-2 rounded-full transition-all shrink-0 ${
                 i === currentSlide ? 'bg-cyan-400 scale-125' : 'bg-white/20 hover:bg-white/40'
               }`}
             />
@@ -493,9 +493,9 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
         <button
           onClick={() => setCurrentSlide(Math.min(slides.length - 1, currentSlide + 1))}
           disabled={currentSlide === slides.length - 1}
-          className="px-3 py-1.5 text-sm rounded bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="px-2 md:px-3 py-1.5 text-xs md:text-sm rounded bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
-          Siguiente →
+          <span className="hidden sm:inline">Siguiente </span>→
         </button>
       </div>
     </div>

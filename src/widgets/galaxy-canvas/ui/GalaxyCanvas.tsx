@@ -16,8 +16,18 @@ const ARTIFACT_PALETTES: Record<string, { hot: string; active: string }> = {
 }
 
 // Galaxia grande que llena la pantalla + polvo cósmico disperso
-const GALAXY_PARTICLES = 10000
-const DUST_PARTICLES = 5000
+// Particle counts are set at module level; getParticleCounts() adapts for device
+function getParticleCounts() {
+  if (typeof window === 'undefined') return { galaxy: 10000, dust: 5000 }
+  const w = window.innerWidth
+  if (w < 768) return { galaxy: 3000, dust: 1500 }     // mobile
+  if (w < 1024) return { galaxy: 6000, dust: 3000 }    // tablet
+  return { galaxy: 10000, dust: 5000 }                  // desktop
+}
+
+const _counts = getParticleCounts()
+const GALAXY_PARTICLES = _counts.galaxy
+const DUST_PARTICLES = _counts.dust
 const TOTAL_PARTICLES = GALAXY_PARTICLES + DUST_PARTICLES
 const BRANCHES = 5
 const GALAXY_RADIUS = 5
@@ -467,12 +477,12 @@ export default function GalaxyCanvas({
       <Canvas
         frameloop={frameloop}
         camera={{ position: [0, 1.2, 4.5], fov: 60 }}
-        dpr={[1, 1.5]}
+        dpr={[1, typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 1.5]}
         gl={{
           antialias: false,
           alpha: false,
           stencil: false,
-          powerPreference: 'high-performance',
+          powerPreference: typeof window !== 'undefined' && window.innerWidth < 1024 ? 'low-power' : 'high-performance',
         }}
         style={{ background: '#000' }}
       >
