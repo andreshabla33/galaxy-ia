@@ -111,7 +111,7 @@ export default function Home() {
           type: artifact.type,
           titulo: artifact.titulo,
           subtipo: artifact.subtipo,
-        }).catch(() => {}) // Silent fail — memory is optional
+        }).catch(() => { }) // Silent fail — memory is optional
       }
     }
   }, [user, apiKey])
@@ -135,8 +135,9 @@ export default function Home() {
     if (currentInput.trim() && apiKey) {
       append({ role: 'user', content: currentInput })
       setInput('')
+      if (!isDesktop) setShowArtifactOverlay(true)
     }
-  }, [apiKey, append, setInput, setIsListening])
+  }, [apiKey, append, setInput, setIsListening, isDesktop])
 
   const { volume, frequencyRef, startListening, stopListening, isRecording, error: audioError, transcript } = useAudioVisualizer({
     onSilenceStop: handleSilenceStop,
@@ -171,13 +172,14 @@ export default function Home() {
             setInput(cleanMsg)
             append({ role: 'user', content: cleanMsg })
             setInput('')
+            if (!isDesktop) setShowArtifactOverlay(true)
           }
           voiceSendingRef.current = false
         }, 300)
         return
       }
     }
-  }, [transcript, isRecording, setInput, apiKey, append, setIsListening])
+  }, [transcript, isRecording, setInput, apiKey, append, setIsListening, isDesktop])
 
   useEffect(() => {
     if (messages.length > 0) setPanelOpen(true)
@@ -191,10 +193,11 @@ export default function Home() {
     if (currentInput.trim() && apiKey) {
       append({ role: 'user', content: currentInput })
       setInput('')
+      if (!isDesktop) setShowArtifactOverlay(true)
     } else if (!apiKey && currentInput.trim()) {
       alert('Por favor, configura tu API Key en los ajustes primero.')
     }
-  }, [apiKey, append, setInput, setIsListening, stopListening])
+  }, [apiKey, append, setInput, setIsListening, stopListening, isDesktop])
 
   const toggleRecording = async () => {
     if (isRecording) {
@@ -213,6 +216,7 @@ export default function Home() {
     if (!input.trim()) return
     append({ role: 'user', content: input })
     setInput('')
+    if (!isDesktop) setShowArtifactOverlay(true)
   }
 
   const handleTemplateSelect = (template: Template, topic: string) => {
@@ -220,6 +224,7 @@ export default function Home() {
     if (!apiKey) { alert('Configura tu API Key primero.'); return }
     const fullPrompt = template.prompt + topic
     append({ role: 'user', content: fullPrompt })
+    if (!isDesktop) setShowArtifactOverlay(true)
   }
 
   // Auto-open artifact overlay when artifacts arrive (tablet/mobile)
@@ -259,14 +264,22 @@ export default function Home() {
           </div>
         )}
 
-        {/* Template button */}
-        <div className={`mb-3 flex gap-2 ${isMobile ? 'justify-center' : ''}`}>
+        {/* Template & View Chat buttons */}
+        <div className={`mb-3 flex flex-wrap gap-2 ${isMobile ? 'justify-center' : ''}`}>
           <button
             onClick={() => setShowTemplates(true)}
             className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white/35 hover:bg-white/[0.06] hover:text-white/55 hover:border-white/[0.12] transition-all flex items-center gap-1.5"
           >
             <span>✨</span> Usar plantilla
           </button>
+          {!isDesktop && messages.length > 0 && (
+            <button
+              onClick={() => setShowArtifactOverlay(true)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-all flex items-center gap-1.5"
+            >
+              <span>💬</span> Ver conversación {isLoading && <span className="ml-1 w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />}
+            </button>
+          )}
         </div>
 
         <ChatInput
@@ -313,24 +326,26 @@ export default function Home() {
       {/* ═══ TABLET LAYOUT: galaxy + chat, overlay for artifacts ═══ */}
       {isTablet && (
         <div className="flex flex-col w-full h-screen relative z-10">
-          {galaxyChatSection}
-
-          {/* Artifact overlay */}
-          {showArtifactOverlay && messages.length > 0 && (
-            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-in fade-in">
-              <div className="h-full flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                  <span className="text-sm text-white/60">Resultado</span>
-                  <button onClick={() => setShowArtifactOverlay(false)} className="text-white/40 hover:text-white text-xl px-2">✕</button>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <ArtifactsPanel
-                    messages={messages}
-                    isLoading={isLoading}
-                    isOpen={true}
-                    onClose={() => setShowArtifactOverlay(false)}
-                  />
-                </div>
+          {!showArtifactOverlay ? galaxyChatSection : (
+            <div className="fixed inset-0 z-50 bg-zinc-950/95 backdrop-blur-md flex flex-col animate-in fade-in">
+              <div className="flex-1 overflow-hidden">
+                <ArtifactsPanel
+                  messages={messages}
+                  isLoading={isLoading}
+                  isOpen={true}
+                  onClose={() => setShowArtifactOverlay(false)}
+                />
+              </div>
+              <div className="p-4 bg-zinc-950/80 border-t border-white/10 shrink-0 backdrop-blur-xl">
+                <ChatInput
+                  input={input}
+                  isListening={isListening}
+                  isLoading={isLoading}
+                  onInputChange={handleInputChange}
+                  onSubmit={onSubmit}
+                  onToggleRecording={toggleRecording}
+                  onSendVoice={sendVoice}
+                />
               </div>
             </div>
           )}
@@ -340,24 +355,26 @@ export default function Home() {
       {/* ═══ MOBILE LAYOUT: galaxy + centered chat, fullscreen overlay for artifacts ═══ */}
       {isMobile && (
         <div className="flex flex-col w-full h-screen relative z-10">
-          {galaxyChatSection}
-
-          {/* Artifact fullscreen overlay — slides up when artifact is generated */}
-          {showArtifactOverlay && messages.length > 0 && (
-            <div className="fixed inset-0 z-50 bg-zinc-950/95 backdrop-blur-md" style={{ animation: 'slideUp 0.3s ease-out' }}>
-              <div className="h-full flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-                  <span className="text-sm text-white/60">Resultado</span>
-                  <button onClick={() => setShowArtifactOverlay(false)} className="text-white/40 hover:text-white text-xl px-2">✕</button>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <ArtifactsPanel
-                    messages={messages}
-                    isLoading={isLoading}
-                    isOpen={true}
-                    onClose={() => setShowArtifactOverlay(false)}
-                  />
-                </div>
+          {!showArtifactOverlay ? galaxyChatSection : (
+            <div className="fixed inset-0 z-50 bg-zinc-950/95 backdrop-blur-md flex flex-col" style={{ animation: 'slideUp 0.3s ease-out' }}>
+              <div className="flex-1 overflow-hidden">
+                <ArtifactsPanel
+                  messages={messages}
+                  isLoading={isLoading}
+                  isOpen={true}
+                  onClose={() => setShowArtifactOverlay(false)}
+                />
+              </div>
+              <div className="p-3 bg-zinc-950/80 border-t border-white/10 shrink-0 backdrop-blur-xl pb-6">
+                <ChatInput
+                  input={input}
+                  isListening={isListening}
+                  isLoading={isLoading}
+                  onInputChange={handleInputChange}
+                  onSubmit={onSubmit}
+                  onToggleRecording={toggleRecording}
+                  onSendVoice={sendVoice}
+                />
               </div>
             </div>
           )}

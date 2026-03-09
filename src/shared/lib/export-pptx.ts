@@ -10,6 +10,7 @@ interface Slide {
   author?: string
   contact?: string
   content?: string
+  image_prompt?: string
 }
 
 interface PresentationData {
@@ -28,57 +29,111 @@ const COLORS = {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addTitleSlide(pptx: any, slide: Slide) {
-  const s = pptx.addSlide()
+function addBackgroundImage(s: any, slide: Slide, images: Map<string, string>) {
   s.background = { color: COLORS.bg }
-  if (slide.title) {
-    s.addText(slide.title, {
-      x: 0.8, y: 1.5, w: 8.4, h: 1.5,
-      fontSize: 36, bold: true, color: COLORS.title,
-      align: 'center', fontFace: 'Arial',
-    })
-  }
-  if (slide.subtitle) {
-    s.addText(slide.subtitle, {
-      x: 1.5, y: 3.2, w: 7, h: 0.8,
-      fontSize: 18, color: COLORS.muted,
-      align: 'center', fontFace: 'Arial',
-    })
+  if (slide.image_prompt && images && images.has(slide.image_prompt)) {
+    s.addImage({ path: images.get(slide.image_prompt), x: 0, y: 0, w: '100%', h: '100%' })
+    s.addShape('rect', { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '000000', transparency: 75 } })
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addBulletsSlide(pptx: any, slide: Slide) {
+function addTitleSlide(pptx: any, slide: Slide, images: Map<string, string>) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
+
+  const hasImg = slide.image_prompt && images && images.has(slide.image_prompt)
+  if (hasImg) {
+    s.addImage({ path: images.get(slide.image_prompt!), x: 5.5, y: 0.8, w: 4.0, h: 4.0 })
+    if (slide.title) {
+      s.addText(slide.title, { x: 0.5, y: 2.0, w: 4.5, h: 1.5, fontSize: 36, bold: true, color: COLORS.title, fontFace: 'Arial' })
+    }
+    if (slide.subtitle) {
+      s.addText(slide.subtitle, { x: 0.5, y: 3.5, w: 4.5, h: 0.8, fontSize: 18, color: COLORS.muted, fontFace: 'Arial' })
+    }
+  } else {
+    if (slide.title) {
+      s.addText(slide.title, { x: 0.8, y: 1.5, w: 8.4, h: 1.5, fontSize: 36, bold: true, color: COLORS.title, align: 'center', fontFace: 'Arial' })
+    }
+    if (slide.subtitle) {
+      s.addText(slide.subtitle, { x: 1.5, y: 3.2, w: 7, h: 0.8, fontSize: 18, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
+    }
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addBulletsSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+  const s = pptx.addSlide()
+  addBackgroundImage(s, slide, images)
+
   if (slide.title) {
-    s.addText(slide.title, {
-      x: 0.8, y: 0.5, w: 8.4, h: 0.8,
-      fontSize: 24, bold: true, color: COLORS.white,
-      fontFace: 'Arial',
-    })
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial' })
+  }
+  if (slide.content) {
+    s.addText(slide.content, { x: 0.8, y: 1.2, w: 8.4, h: 0.8, fontSize: 16, color: COLORS.muted, fontFace: 'Arial', valign: 'top' })
   }
   if (slide.bullets) {
     const bulletText = slide.bullets.map(b => ({
       text: b,
       options: { fontSize: 16, color: COLORS.text, bullet: { code: '25CF', color: COLORS.title }, paraSpaceAfter: 8 },
     }))
-    s.addText(bulletText, {
-      x: 0.8, y: 1.5, w: 8.4, h: 4,
-      fontFace: 'Arial', valign: 'top',
-    })
+    s.addText(bulletText, { x: 0.8, y: slide.content ? 2.0 : 1.5, w: 8.4, h: 4, fontFace: 'Arial', valign: 'top' })
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addTwoColumnSlide(pptx: any, slide: Slide) {
+function addImageLeftSlide(pptx: any, slide: Slide, images: Map<string, string>) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
+
+  if (slide.image_prompt && images && images.has(slide.image_prompt)) {
+    s.addImage({ path: images.get(slide.image_prompt), x: 0.5, y: 0.8, w: 4.0, h: 4.0 })
+  }
   if (slide.title) {
-    s.addText(slide.title, {
-      x: 0.8, y: 0.5, w: 8.4, h: 0.8,
-      fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial',
-    })
+    s.addText(slide.title, { x: 5.0, y: 0.8, w: 4.5, h: 0.6, fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial' })
+  }
+  if (slide.content) {
+    s.addText(slide.content, { x: 5.0, y: 1.5, w: 4.5, h: 1.0, fontSize: 14, color: COLORS.muted, fontFace: 'Arial', valign: 'top' })
+  }
+  if (slide.bullets) {
+    const bulletText = slide.bullets.map(b => ({
+      text: b,
+      options: { fontSize: 14, color: COLORS.text, bullet: { code: '25CF', color: COLORS.title }, paraSpaceAfter: 6 },
+    }))
+    s.addText(bulletText, { x: 5.0, y: 2.6, w: 4.5, h: 2.5, fontFace: 'Arial', valign: 'top' })
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addImageRightSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.5, y: 0.8, w: 4.5, h: 0.6, fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial' })
+  }
+  if (slide.content) {
+    s.addText(slide.content, { x: 0.5, y: 1.5, w: 4.5, h: 1.0, fontSize: 14, color: COLORS.muted, fontFace: 'Arial', valign: 'top' })
+  }
+  if (slide.bullets) {
+    const bulletText = slide.bullets.map(b => ({
+      text: b,
+      options: { fontSize: 14, color: COLORS.text, bullet: { code: '25CF', color: COLORS.title }, paraSpaceAfter: 6 },
+    }))
+    s.addText(bulletText, { x: 0.5, y: 2.6, w: 4.5, h: 2.5, fontFace: 'Arial', valign: 'top' })
+  }
+  if (slide.image_prompt && images && images.has(slide.image_prompt)) {
+    s.addImage({ path: images.get(slide.image_prompt), x: 5.5, y: 0.8, w: 4.0, h: 4.0 })
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addTwoColumnSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+  const s = pptx.addSlide()
+  addBackgroundImage(s, slide, images)
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial' })
   }
   if (slide.left) {
     s.addShape('rect', { x: 0.5, y: 1.5, w: 4.2, h: 3.5, fill: { color: '111827' }, rectRadius: 0.15 })
@@ -93,69 +148,49 @@ function addTwoColumnSlide(pptx: any, slide: Slide) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addStatsSlide(pptx: any, slide: Slide) {
+function addStatsSlide(pptx: any, slide: Slide, images: Map<string, string>) {
   const s = pptx.addSlide()
-  s.background = { color: COLORS.bg }
+  addBackgroundImage(s, slide, images)
+
   if (slide.title) {
-    s.addText(slide.title, {
-      x: 0.8, y: 0.5, w: 8.4, h: 0.8,
-      fontSize: 24, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial',
-    })
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
   }
   if (slide.stats) {
     const gap = 8.4 / slide.stats.length
     slide.stats.forEach((stat, i) => {
-      s.addText(stat.value, {
-        x: 0.8 + (i * gap), y: 2, w: gap - 0.3, h: 1,
-        fontSize: 36, bold: true, color: COLORS.title, align: 'center', fontFace: 'Arial',
-      })
-      s.addText(stat.label, {
-        x: 0.8 + (i * gap), y: 3.2, w: gap - 0.3, h: 0.6,
-        fontSize: 12, color: COLORS.muted, align: 'center', fontFace: 'Arial',
-      })
+      s.addText(stat.value, { x: 0.8 + (i * gap), y: 2, w: gap - 0.3, h: 1, fontSize: 36, bold: true, color: COLORS.title, align: 'center', fontFace: 'Arial' })
+      s.addText(stat.label, { x: 0.8 + (i * gap), y: 3.2, w: gap - 0.3, h: 0.6, fontSize: 12, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
     })
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addQuoteSlide(pptx: any, slide: Slide) {
+function addQuoteSlide(pptx: any, slide: Slide, images: Map<string, string>) {
   const s = pptx.addSlide()
-  s.background = { color: COLORS.bg }
+  addBackgroundImage(s, slide, images)
+
   if (slide.quote) {
-    s.addText(`"${slide.quote}"`, {
-      x: 1.5, y: 1.5, w: 7, h: 2.5,
-      fontSize: 20, italic: true, color: COLORS.text,
-      align: 'center', fontFace: 'Arial',
-    })
+    s.addText(`"${slide.quote}"`, { x: 1.5, y: 1.5, w: 7, h: 2.5, fontSize: 20, italic: true, color: COLORS.text, align: 'center', fontFace: 'Arial' })
   }
   if (slide.author) {
-    s.addText(`— ${slide.author}`, {
-      x: 1.5, y: 4.2, w: 7, h: 0.5,
-      fontSize: 14, color: COLORS.muted, align: 'center', fontFace: 'Arial',
-    })
+    s.addText(`— ${slide.author}`, { x: 1.5, y: 4.2, w: 7, h: 0.5, fontSize: 14, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addClosingSlide(pptx: any, slide: Slide) {
+function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>) {
   const s = pptx.addSlide()
-  s.background = { color: COLORS.bg }
+  addBackgroundImage(s, slide, images)
+
   if (slide.title) {
-    s.addText(slide.title, {
-      x: 0.8, y: 2, w: 8.4, h: 1.2,
-      fontSize: 30, bold: true, color: COLORS.white,
-      align: 'center', fontFace: 'Arial',
-    })
+    s.addText(slide.title, { x: 0.8, y: 2, w: 8.4, h: 1.2, fontSize: 30, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
   }
   if (slide.contact) {
-    s.addText(slide.contact, {
-      x: 1.5, y: 3.5, w: 7, h: 0.5,
-      fontSize: 14, color: COLORS.muted, align: 'center', fontFace: 'Arial',
-    })
+    s.addText(slide.contact, { x: 1.5, y: 3.5, w: 7, h: 0.5, fontSize: 14, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
   }
 }
 
-export async function exportToPptx(data: PresentationData, titulo: string) {
+export async function exportToPptx(data: PresentationData, titulo: string, images: Map<string, string>) {
   // Dynamic import — solo se carga cuando el usuario hace clic en "Descargar"
   const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
@@ -167,13 +202,15 @@ export async function exportToPptx(data: PresentationData, titulo: string) {
 
   for (const slide of slides) {
     switch (slide.layout) {
-      case 'title': addTitleSlide(pptx, slide); break
-      case 'bullets': addBulletsSlide(pptx, slide); break
-      case 'two-column': addTwoColumnSlide(pptx, slide); break
-      case 'stats': addStatsSlide(pptx, slide); break
-      case 'quote': addQuoteSlide(pptx, slide); break
-      case 'closing': addClosingSlide(pptx, slide); break
-      default: addBulletsSlide(pptx, slide); break
+      case 'title': addTitleSlide(pptx, slide, images); break
+      case 'image-left': addImageLeftSlide(pptx, slide, images); break
+      case 'image-right': addImageRightSlide(pptx, slide, images); break
+      case 'bullets': addBulletsSlide(pptx, slide, images); break
+      case 'two-column': addTwoColumnSlide(pptx, slide, images); break
+      case 'stats': addStatsSlide(pptx, slide, images); break
+      case 'quote': addQuoteSlide(pptx, slide, images); break
+      case 'closing': addClosingSlide(pptx, slide, images); break
+      default: addBulletsSlide(pptx, slide, images); break
     }
   }
 

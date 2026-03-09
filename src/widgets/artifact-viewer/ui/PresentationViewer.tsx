@@ -400,7 +400,7 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
   const handleDownload = async () => {
     setExporting(true)
     try {
-      await exportToPptx(contenido as Record<string, unknown>, titulo)
+      await exportToPptx(contenido as Record<string, unknown>, titulo, imageCache)
     } catch (err) {
       console.error('Error exporting PPTX:', err)
     } finally {
@@ -483,9 +483,8 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
             <button
               key={i}
               onClick={() => setCurrentSlide(i)}
-              className={`w-2 h-2 rounded-full transition-all shrink-0 ${
-                i === currentSlide ? 'bg-cyan-400 scale-125' : 'bg-white/20 hover:bg-white/40'
-              }`}
+              className={`w-2 h-2 rounded-full transition-all shrink-0 ${i === currentSlide ? 'bg-cyan-400 scale-125' : 'bg-white/20 hover:bg-white/40'
+                }`}
             />
           ))}
         </div>
