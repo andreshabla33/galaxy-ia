@@ -3,15 +3,15 @@ import { supabase } from './supabase'
 /**
  * Genera un embedding para un texto usando la API de Gemini.
  */
-export async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+export async function generateEmbedding(text: string, apiKey: string, provider = 'gemini'): Promise<number[]> {
   const res = await fetch('/api/embeddings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, apiKey }),
+    body: JSON.stringify({ text, apiKey, provider }),
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)
-  return data.embedding
+  return data.embedding || []
 }
 
 /**
@@ -22,10 +22,17 @@ export async function saveArtifactMemory(
   usuarioId: string,
   contentSummary: string,
   apiKey: string,
+  provider = 'gemini',
   metadata: Record<string, unknown> = {}
 ) {
   try {
-    const embedding = await generateEmbedding(contentSummary, apiKey)
+    const embedding = await generateEmbedding(contentSummary, apiKey, provider)
+
+    // Skip if embedding is empty (unsupported providers or empty content)
+    if (!embedding || embedding.length === 0) {
+      console.log('Skipping artifact memory: empty embedding');
+      return;
+    }
 
     const { error } = await supabase.from('artifact_embeddings').insert({
       artefacto_id: artefactoId,
@@ -49,11 +56,12 @@ export async function saveArtifactMemory(
 export async function searchArtifactMemory(
   query: string,
   apiKey: string,
+  provider = 'gemini',
   matchCount = 3,
   matchThreshold = 0.5
 ): Promise<{ artefacto_id: string; content_summary: string; similarity: number; metadata: Record<string, unknown> }[]> {
   try {
-    const embedding = await generateEmbedding(query, apiKey)
+    const embedding = await generateEmbedding(query, apiKey, provider)
 
     const { data, error } = await supabase.rpc('match_artifacts', {
       query_embedding: JSON.stringify(embedding),

@@ -15,6 +15,10 @@ export async function POST(req: Request) {
     }
 
     console.log(`[WEB-SEARCH] Query: "${query}" | Limit: ${limit}`);
+    
+    // Timeout de 10 segundos para no bloquear el chat si Firecrawl tarda demasiado
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch('https://api.firecrawl.dev/v1/search', {
       method: 'POST',
@@ -30,7 +34,10 @@ export async function POST(req: Request) {
           onlyMainContent: true,
         },
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const err = await response.text();

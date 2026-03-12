@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import { MermaidExtension } from './MermaidExtension'
@@ -23,7 +23,7 @@ interface DocumentViewerProps {
   titulo: string
 }
 
-const MenuBar = ({ editor }: { editor: any }) => {
+const MenuBar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) {
     return null
   }
@@ -133,23 +133,7 @@ export function DocumentViewer({ contenido, titulo }: DocumentViewerProps) {
     editable: true,
     editorProps: {
       attributes: {
-        class: `prose prose-invert prose-sm max-w-none min-h-[500px] focus:outline-none
-          prose-headings:text-white/90 prose-headings:font-medium
-          prose-h1:text-2xl prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-3
-          prose-h2:text-xl prose-h2:mt-8
-          prose-h3:text-lg
-          prose-p:text-white/70 prose-p:leading-relaxed
-          prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline
-          prose-strong:text-white/90
-          prose-code:text-cyan-300 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-          prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10
-          prose-table:border-collapse
-          prose-th:bg-white/5 prose-th:border prose-th:border-white/10 prose-th:px-3 prose-th:py-2 prose-th:text-left
-          prose-td:border prose-td:border-white/10 prose-td:px-3 prose-td:py-2
-          prose-li:text-white/70
-          prose-blockquote:border-l-cyan-400/50 prose-blockquote:text-white/60
-          prose-hr:border-white/10
-        `,
+        class: 'prose prose-invert prose-sm max-w-none min-h-[500px] focus:outline-none prose-headings:text-white/90 prose-headings:font-medium prose-h1:text-2xl prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-3 prose-h2:text-xl prose-h2:mt-8 prose-h3:text-lg prose-p:text-white/70 prose-p:leading-relaxed prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline prose-strong:text-white/90 prose-code:text-cyan-300 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10 prose-table:border-collapse prose-th:bg-white/5 prose-th:border prose-th:border-white/10 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-td:border prose-td:border-white/10 prose-td:px-3 prose-td:py-2 prose-li:text-white/70 prose-blockquote:border-l-cyan-400/50 prose-blockquote:text-white/60 prose-hr:border-white/10',
       },
     },
   })

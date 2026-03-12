@@ -11,41 +11,225 @@ export interface ParsedArtifact {
 /**
  * Extrae un artefacto del output del LLM.
  * Busca bloques ```artifact:tipo { JSON } ``` en el texto.
+ * Si no encuentra el wrapper correcto, intenta recuperarlo de cualquier bloque JSON.
  */
-export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
-  // Buscar bloque ```artifact:tipo ... ```
-  const artifactRegex = /```artifact:(documento|presentacion|codigo|imagen)\s*\n([\s\S]*?)```/
-  const match = text.match(artifactRegex)
+/**
+ * Intenta limpiar un string JSON malformado (especialmente común con LLMs)
+ */
+function cleanJSON(jsonStr: string): string {
+  let cleaned = jsonStr.trim()
+  
+  // 1. Quitar posibles bloques de Markdown dentro del JSON si están mal escapados
+  // (Este caso es complejo, pero a veces el LLM pone ``` dentro del string sin escapar)
+  
+  // 2. Corregir saltos de línea literales dentro de comillas (muy común en 'html' o 'contenido')
+  // Reemplazamos saltos de línea reales (\n) por la secuencia de escape (\n) 
+  // SOLO si parecen estar dentro de un valor de string.
+  // Un enfoque sencillo pero efectivo:
+  cleaned = cleaned.replace(/":\s*"([\s\S]*?)"\s*[,}]/g, (match, content) => {
+    const escapedContent = content.replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+    return match.replace(content, escapedContent)
+  })
 
-  if (!match) return null
+  return cleaned
+}
 
-  const type = match[1] as ArtifactType
-  const jsonStr = match[2].trim()
+/**
+ * Intenta extraer campos específicos de un bloque de texto que se supone es JSON malformado.
+ */
+function recoverFromMalformedJSON(type: ArtifactType, text: string): ParsedArtifact | null {
+  console.warn(`[parser] Attempting emergency recovery for ${type} from malformed JSON...`)
+  
+  // Extraer título - patrón común: "titulo": "..."
+  const titleMatch = text.match(/"titulo":\s*"([^"]+)"/)
+  const titulo = titleMatch ? titleMatch[1] : 'Fragmento recuperado'
 
-  try {
-    const parsed = JSON.parse(jsonStr)
-
-    return {
-      type,
-      titulo: parsed.titulo || 'Sin título',
-      subtipo: parsed.subtipo || 'otro',
-      contenido: buildContenido(type, parsed),
-      raw: jsonStr,
+  // Si es código, intentar extraer el campo "html" directamente
+  if (type === 'codigo') {
+    const htmlMatch = text.match(/"html":\s*"([\s\S]*?)"\s*[,}]?\s*$/)
+    if (htmlMatch) {
+       return {
+         type,
+         titulo,
+         subtipo: 'componente',
+         contenido: { html: htmlMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'), framework: 'react' },
+         raw: text
+       }
     }
-  } catch (e) {
-    console.error('Error parsing artifact JSON:', e)
-    // Intento de recuperación: si es documento, tratar el texto como markdown
-    if (type === 'documento') {
+  }
+
+  // Si es documento, tratar todo como markdown
+  if (type === 'documento') {
+     return {
+       type,
+       titulo,
+       subtipo: 'otro',
+       contenido: { markdown: text.replace(/{[\s\S]*?"contenido":\s*"/, '').replace(/"\s*}$[ \t]*$/m, '') },
+       raw: text
+     }
+  }
+
+  return null
+}
+
+export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
+  // --- PASS 0: TAGS (Claude-style, most robust for code) ---
+  // Formato: <artifact type="codigo" title="Login" framework="react">...code...</artifact>
+  // Robustez: Maneja casos donde el LLM envuelve el tag en bloques de código markdown o olvida el tag de cierre.
+  const tagStartRegex = /<artifact\s+([^>]+)>/i
+  const tagStartMatch = text.match(tagStartRegex)
+  
+  if (tagStartMatch) {
+    const attrStr = tagStartMatch[1]
+    const tagFullStartMatch = tagStartMatch[0]
+    const startIndex = tagStartMatch.index! + tagFullStartMatch.length
+    
+    // Intentar encontrar el cierre </artifact>
+    const tagEndRegex = /<\/artifact>/i
+    const tagEndMatch = text.match(tagEndRegex)
+    
+    let content = ''
+    let raw = ''
+    
+    // Solo consideramos un cierre válido si está DESPUÉS del inicio
+    if (tagEndMatch && tagEndMatch.index && tagEndMatch.index > startIndex) {
+      content = text.substring(startIndex, tagEndMatch.index).trim()
+      raw = text.substring(tagStartMatch.index!, tagEndMatch.index + tagEndMatch[0].length)
+    } else {
+      // Si no hay cierre (aún estamos en streaming o el LLM lo olvidó)
+      // Tomamos todo el texto restante. NO cortamos en ``` porque el código React suele tenerlos.
+      content = text.substring(startIndex).trim()
+      raw = text.substring(tagStartMatch.index!)
+    }
+
+    // Limpieza de posibles backticks al principio (ej: el LLM hizo ```<artifact>)
+    content = content.replace(/^```[a-z]*\n?/i, '')
+    // Limpieza de posibles backticks al final si el stream cortó ahí
+    content = content.replace(/\n?```$/i, '')
+    
+    // Extraer atributos
+    // Soporta comillas simples o dobles, con o sin espacios.
+    const typeMatch = attrStr.match(/type=["']?([^"'\s>]+)["']?/i)
+    const titleMatch = attrStr.match(/title=["']?([^"'>]+)["']?/i)
+    const frameworkMatch = attrStr.match(/framework=["']?([^"'\s>]+)["']?/i)
+
+    const type = typeMatch ? (typeMatch[1] as ArtifactType) : null
+    const titulo = titleMatch ? titleMatch[1] : 'Generando...'
+    const framework = frameworkMatch ? frameworkMatch[1] : 'react'
+
+    if (type) {
       return {
         type,
-        titulo: 'Documento generado',
-        subtipo: 'otro',
-        contenido: { markdown: jsonStr },
-        raw: jsonStr,
+        titulo: titulo.trim(),
+        subtipo: 'componente',
+        contenido: buildContenido(type, { titulo, framework, html: content, contenido: content }),
+        raw: raw
       }
     }
-    return null
   }
+
+  // --- PASS 0.5: SEPARATOR BLOCK (V0/Bolt-style) ---
+  // Formato: ```artifact:codigo\ntitulo: Login\n---\ncode...```
+  const sepRegex = /```artifact:(\w+)\s*\n([\s\S]*?)\n---\n([\s\S]*?)```/
+  const sepMatch = text.match(sepRegex)
+  if (sepMatch) {
+    const type = sepMatch[1] as ArtifactType
+    const metaStr = sepMatch[2]
+    const content = sepMatch[3].trim()
+    
+    const titulo = (metaStr.match(/titulo:\s*(.*)/i) || [])[1]?.trim() || 'Sin título'
+    const subtipo = (metaStr.match(/subtipo:\s*(.*)/i) || [])[1]?.trim() || 'otro'
+    const framework = (metaStr.match(/framework:\s*(.*)/i) || [])[1]?.trim() || 'react'
+
+    console.log(`[parser] Detected SEPARATOR artifact: ${type} - ${titulo}`)
+    return {
+      type,
+      titulo,
+      subtipo,
+      contenido: buildContenido(type, { titulo, subtipo, framework, html: content, contenido: content }),
+      raw: sepMatch[0]
+    }
+  }
+
+  // --- PASS 1: Intento estándar JSON (no-greedy) ---
+  const standardRegex = /```artifact:(documento|presentacion|codigo|imagen)\s*\n([\s\S]*?)```/
+  const match = text.match(standardRegex)
+
+  if (match) {
+    const type = match[1] as ArtifactType
+    const jsonStr = match[2].trim()
+    try {
+      const parsed = JSON.parse(jsonStr)
+      return {
+        type,
+        titulo: parsed.titulo || 'Sin título',
+        subtipo: parsed.subtipo || 'otro',
+        contenido: buildContenido(type, parsed),
+        raw: jsonStr,
+      }
+    } catch {
+      console.warn(`[parser] Standard parse failed for ${type}, trying to clean JSON...`)
+      
+      try {
+        const cleaned = cleanJSON(jsonStr)
+        const parsed = JSON.parse(cleaned)
+        return {
+          type,
+          titulo: parsed.titulo || 'Sin título',
+          subtipo: parsed.subtipo || 'otro',
+          contenido: buildContenido(type, parsed),
+          raw: cleaned,
+        }
+      } catch {
+        // Falló limpieza, intentar recuperación de campos vía regex
+        const recovered = recoverFromMalformedJSON(type, jsonStr)
+        if (recovered) return recovered
+      }
+
+      // Si es documento y todo falló, devolver el crudo filtrado
+      if (type === 'documento') {
+        return {
+          type,
+          titulo: 'Documento recuperado',
+          subtipo: 'otro',
+          contenido: { markdown: jsonStr },
+          raw: jsonStr,
+        }
+      }
+    }
+  }
+
+  // --- PASS 2: Fallback — detectar JSON en cualquier bloque de código (```json, ```, etc.) ---
+  // Handles case where LLM forgets the artifact: wrapper
+  const fallbackRegex = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*```/g
+  let fbMatch
+  while ((fbMatch = fallbackRegex.exec(text)) !== null) {
+    const jsonStr = fbMatch[1].trim()
+    try {
+      const parsed = JSON.parse(jsonStr)
+      // Detect type from fields
+      let type: ArtifactType | null = null
+      if (parsed.html !== undefined && (parsed.framework || parsed.subtipo)) type = 'codigo'
+      else if (parsed.slides !== undefined) type = 'presentacion'
+      else if (parsed.contenido !== undefined && typeof parsed.contenido === 'string') type = 'documento'
+      else if (parsed.prompt !== undefined && parsed.aspectRatio !== undefined) type = 'imagen'
+
+      if (type && parsed.titulo) {
+        console.warn(`[parser] Fallback: recovered ${type} artifact without wrapper`)
+        return {
+          type,
+          titulo: parsed.titulo || 'Sin título',
+          subtipo: parsed.subtipo || 'otro',
+          contenido: buildContenido(type, parsed),
+          raw: jsonStr,
+        }
+      }
+    } catch {
+      // Not valid JSON, continue
+    }
+  }
+
+  return null
 }
 
 /**

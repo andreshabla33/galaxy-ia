@@ -13,6 +13,8 @@ import { ArtifactsPanel } from '@/widgets/artifacts-panel'
 import { TemplateSelector } from '@/widgets/template-selector'
 import { supabase } from '@/shared/lib/supabase'
 import { UserMenu } from '@/widgets/user-menu'
+import { HistorySidebar } from '@/widgets/history-sidebar'
+import { History } from 'lucide-react'
 import type { ParsedArtifact } from '@/shared/lib/artifact-parser'
 import type { Template } from '@/shared/config/templates'
 import { saveArtifactMemory, buildArtifactSummary } from '@/shared/lib/memory'
@@ -80,6 +82,8 @@ export default function Home() {
   const user = useAuthStore((s) => s.user)
   const { isMobile, isTablet, isDesktop } = useMediaQuery()
   const [panelOpen, setPanelOpen] = useState(true)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showArtifactOverlay, setShowArtifactOverlay] = useState(false)
   const inputRef = useRef<string>('')
@@ -107,20 +111,33 @@ export default function Home() {
       // Guardar embedding para memoria de contexto (async, no bloquea)
       if (apiKey) {
         const summary = buildArtifactSummary(artifact.type, artifact.titulo, artifact.contenido)
-        saveArtifactMemory('00000000-0000-0000-0000-000000000000', user.id, summary, apiKey, {
+        saveArtifactMemory('00000000-0000-0000-0000-000000000000', user.id, summary, apiKey, provider, {
           type: artifact.type,
           titulo: artifact.titulo,
           subtipo: artifact.subtipo,
         }).catch(() => { }) // Silent fail — memory is optional
       }
     }
-  }, [user, apiKey])
+  }, [user, apiKey, provider])
 
-  const { messages, input, handleInputChange, setInput, append, isLoading, lastArtifact } = useChat({
+  const { messages, input, handleInputChange, setInput, append, isLoading, lastArtifact, setMessages } = useChat({
     apiKey,
     provider,
     onArtifact: handleArtifact,
+    sessionId,
+    onSessionCreated: (id) => setSessionId(id)
   })
+
+  const handleSelectSession = (id: string) => {
+    setSessionId(id)
+    if (!isDesktop) setPanelOpen(true)
+  }
+
+  const handleNewChat = () => {
+    setSessionId(null)
+    setMessages([])
+    if (!isDesktop) setShowArtifactOverlay(false)
+  }
 
   // Rotating phrases for galaxy heading
   const loadingPhrase = useRotatingPhrase(LOADING_PHRASES, 3000, isLoading)
@@ -302,10 +319,31 @@ export default function Home() {
 
       {/* User avatar menu */}
       {user && (
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
           <UserMenu user={user} />
         </div>
       )}
+
+      {/* History toggle button */}
+      <div className="fixed top-4 left-4 z-[60]">
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="p-2 w-10 h-10 rounded-full bg-zinc-900/60 backdrop-blur-xl border border-white/5 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center justify-center shadow-xl shadow-black/40 group overflow-hidden"
+          title="Ver historial de chats"
+        >
+          <History className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-fuchsia-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+      </div>
+
+      {/* Chat History Sidebar */}
+      <HistorySidebar 
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        currentSessionId={sessionId}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleNewChat}
+      />
 
       {/* Galaxy Canvas — always rendered as background */}
       <GalaxyCanvas isListening={isListening || isLoading} volume={isLoading ? 0.3 : volume} frequencyRef={frequencyRef} artifactType={lastArtifact?.type ?? null} panelOpen={isDesktop && panelOpen && messages.length > 0} />

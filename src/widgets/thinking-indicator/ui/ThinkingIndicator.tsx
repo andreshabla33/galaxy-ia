@@ -44,10 +44,10 @@ interface ThinkingIndicatorProps {
 
 function detectType(msg: string): string | null {
   const lower = msg.toLowerCase()
-  if (/presentaci[oó]n|slides|diapositivas|pitch|keynote/i.test(lower)) return 'presentacion'
-  if (/documento|reporte|gu[ií]a|contrato|art[ií]culo|manual/i.test(lower)) return 'documento'
-  if (/c[oó]digo|landing|componente|dashboard|p[aá]gina web|interfaz|formulario/i.test(lower)) return 'codigo'
-  if (/imagen|foto|logo|ilustraci[oó]n|banner|poster|dise[ñn]o visual|arte/i.test(lower)) return 'imagen'
+  if (/presentaci[oó]n|slides|diapositivas|pitch|deck|keynote/i.test(lower)) return 'presentacion'
+  if (/documento|reporte|gu[ií]a|contrato|art[ií]culo|texto|manual/i.test(lower)) return 'documento'
+  if (/c[oó]digo|landing|componente|dashboard|p[aá]gina web|interfaz|formulario|login|react|nextjs|script|html|css|js/i.test(lower)) return 'codigo'
+  if (/imagen|foto|logo|ilustraci[oó]n|banner|poster|dise[ñn]o visual|arte|dibujo|paisaje/i.test(lower)) return 'imagen'
   return null
 }
 

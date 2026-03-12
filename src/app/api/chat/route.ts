@@ -50,7 +50,22 @@ async function* parseSSEStream(response: Response, parser: SSEParser): AsyncGene
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        buffer += decoder.decode();
+        const finalLines = buffer
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+        for (const line of finalLines) {
+          const text = parser(line);
+          if (text) {
+            chunks++;
+            if (chunks <= 3) console.log(`[Stream] Chunk #${chunks}: "${text.slice(0, 40)}"`);
+            yield text;
+          }
+        }
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');

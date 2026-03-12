@@ -5,7 +5,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 
 // Renderizador React para los bloques de código detectados como Mermaid
-function MermaidNodeView({ node }: { node: any }) {
+function MermaidNodeView({ node }: { node: import('@tiptap/pm/model').Node }) {
     const code = node.attrs.code || ''
     const [svg, setSvg] = useState<string>('')
     const [error, setError] = useState<string>('')
@@ -33,8 +33,12 @@ function MermaidNodeView({ node }: { node: any }) {
                 setError('')
                 const { svg } = await mermaid.render(renderId.current, code)
                 setSvg(svg)
-            } catch (e: any) {
-                setError(e.message || 'Error invalid syntax mermaid')
+            } catch (e: unknown) {
+                if (e instanceof Error) {
+                    setError(e.message || 'Error invalid syntax mermaid')
+                } else {
+                    setError('Error invalid syntax mermaid')
+                }
             }
         }
 

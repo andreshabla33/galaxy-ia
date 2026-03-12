@@ -22,7 +22,7 @@ const INTENT_PATTERNS: { type: IntentType; patterns: RegExp[] }[] = [
       /\bdocumento\b/i, /\breporte\b/i, /\bgu[ií]a\b/i,
       /\bcontrato\b/i, /\bpropuesta\b/i, /\bart[ií]culo\b/i,
       /\bmanual\b/i, /\bespecificaci[oó]n\b/i, /\bPRD\b/i,
-      /\bensayo\b/i, /\binvestigaci[oó]n\b/i, /\btendencia/i,
+      /\bensayo\b/i, /\binvestigaci[oó]n\b/i,
       /\bresumen\b/i, /\binforme\b/i, /\banalisis\b/i, /\banálisis\b/i,
     ],
   },
@@ -41,6 +41,7 @@ const INTENT_PATTERNS: { type: IntentType; patterns: RegExp[] }[] = [
       /\blanding\b/i, /\bp[aá]gina\s*web\b/i, /\bcomponente\b/i,
       /\bdashboard\b/i, /\bformulario\b/i, /\binterfaz\b/i,
       /\bweb\s*app\b/i, /\bHTML\b/i, /\bcrea.*app\b/i,
+      /\blogin\b/i, /\breact\b/i, /\bnextjs\b/i, /\bscript\b/i,
     ],
   },
 ]

@@ -1,17 +1,20 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/entities/message'
 import { generateId } from '@/shared/lib/generate-id'
 import { parseArtifactFromResponse, type ParsedArtifact } from '@/shared/lib/artifact-parser'
 import { buildDynamicPrompt } from '@/shared/lib/prompt-loader'
 import { needsWebSearch, performWebSearch, formatSearchContext } from '@/shared/lib/web-search'
+import { supabase } from '@/shared/lib/supabase'
 
 interface UseChatOptions {
   apiKey: string;
   provider: string;
   systemPrompt?: string;
   onArtifact?: (artifact: ParsedArtifact) => void;
+  sessionId?: string | null;
+  onSessionCreated?: (id: string) => void;
 }
 
 interface UseChatReturn {
@@ -22,9 +25,10 @@ interface UseChatReturn {
   append: (message: Pick<ChatMessage, 'role' | 'content'>, overrideSystemPrompt?: string) => Promise<void>;
   isLoading: boolean;
   lastArtifact: ParsedArtifact | null;
+  setMessages: (messages: ChatMessage[]) => void;
 }
 
-export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatOptions): UseChatReturn {
+export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId, onSessionCreated }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -33,11 +37,55 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatO
   const onArtifactRef = useRef(onArtifact)
   onArtifactRef.current = onArtifact
 
+  // Cargar historial si hay sessionId
+  useEffect(() => {
+    if (!sessionId) {
+      setMessages([])
+      return
+    }
+
+    const loadHistory = async () => {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        console.error('[useChat] Error loading history:', error)
+        return
+      }
+
+      if (data) {
+        const historyMessages = data.map((m: { id: string; role: string; content: string }) => ({
+          id: m.id,
+          role: m.role as ChatMessage['role'],
+          content: m.content
+        }))
+        setMessages(historyMessages)
+
+        // Detectar el último artefacto para que el UI reaccione (fondo, etc.)
+        for (let i = historyMessages.length - 1; i >= 0; i--) {
+          if (historyMessages[i].role === 'assistant') {
+            const artifact = parseArtifactFromResponse(historyMessages[i].content)
+            if (artifact) {
+              setLastArtifact(artifact)
+              break
+            }
+          }
+        }
+      }
+    }
+
+    loadHistory()
+  }, [sessionId])
+
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
   }, [])
 
   const append = useCallback(async (message: Pick<ChatMessage, 'role' | 'content'>, overrideSystemPrompt?: string) => {
+    let currentSessionId = sessionId
     const userMessage: ChatMessage = {
       id: generateId(),
       role: message.role,
@@ -47,6 +95,41 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatO
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
     setIsLoading(true)
+
+    // Persistir mensaje del usuario
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const user = userData.user
+
+      if (user) {
+        // Crear sesión si no existe
+        if (!currentSessionId) {
+          const { data: session, error: sessionError } = await supabase
+            .from('chat_sessions')
+            .insert({
+              user_id: user.id,
+              title: message.content.slice(0, 40) + (message.content.length > 40 ? '...' : '')
+            })
+            .select()
+            .single()
+
+          if (!sessionError && session) {
+            currentSessionId = session.id
+            if (onSessionCreated) onSessionCreated(session.id)
+          }
+        }
+
+        if (currentSessionId) {
+          await supabase.from('chat_messages').insert({
+            session_id: currentSessionId,
+            role: userMessage.role,
+            content: userMessage.content
+          })
+        }
+      }
+    } catch (e) {
+      console.error('[useChat] Error persisting user message:', e)
+    }
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -130,6 +213,17 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatO
         })
       }
 
+      // Persistir mensaje del asistente al finalizar el stream
+      if (currentSessionId) {
+        supabase.from('chat_messages').insert({
+          session_id: currentSessionId,
+          role: 'assistant',
+          content: fullContent
+        }).then(({ error }) => {
+          if (error) console.error('[useChat] Error saving assistant response:', error)
+        })
+      }
+
       // Detectar artefacto en la respuesta completa
       const artifact = parseArtifactFromResponse(fullContent)
       if (artifact) {
@@ -154,7 +248,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact }: UseChatO
     } finally {
       setIsLoading(false)
     }
-  }, [messages, apiKey, provider, systemPrompt])
+  }, [messages, apiKey, provider, systemPrompt, sessionId, onSessionCreated])
 
-  return { messages, input, setInput, handleInputChange, append, isLoading, lastArtifact }
+  return { messages, input, setInput, handleInputChange, append, isLoading, lastArtifact, setMessages }
 }
