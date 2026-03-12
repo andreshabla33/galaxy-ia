@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState, useCallback, useRef } from 'react'
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { SquareTerminal, X } from 'lucide-react'
@@ -121,17 +121,57 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   }
 
   const hasEdited = currentArtifact !== null
+
+  // ── Deferred Sandpack mount ─────────────────────────────────────────
+  // Sandpack iframes can fail to render when mounted in the same frame
+  // as a large React tree transition (ThinkingIndicator → CodeViewer).
+  // We wait for the DOM to stabilize before mounting.
+  const [codeViewerReady, setCodeViewerReady] = useState(!isLoading)
+  const wasStreamingRef = useRef(isLoading)
+
+  useEffect(() => {
+    if (isLoading) {
+      // Stream starting — reset readiness
+      wasStreamingRef.current = true
+      setCodeViewerReady(false)
+    } else if (wasStreamingRef.current && displayArtifact?.type === 'codigo') {
+      // Stream just finished with a code artifact — defer Sandpack mount
+      wasStreamingRef.current = false
+      console.log('[ArtifactsPanel] Stream ended for code artifact, deferring Sandpack mount…')
+      const timer = setTimeout(() => {
+        console.log('[ArtifactsPanel] DOM stable → mounting Sandpack')
+        setCodeViewerReady(true)
+      }, 200)
+      return () => clearTimeout(timer)
+    } else {
+      // Non-code artifact or initial mount — ready immediately
+      wasStreamingRef.current = false
+      setCodeViewerReady(true)
+    }
+  }, [isLoading, displayArtifact?.type])
+
   const shouldDelayLiveCodePreview = Boolean(
     displayArtifact &&
     displayArtifact.type === 'codigo' &&
-    isLoading &&
+    (isLoading || !codeViewerReady) &&
     !currentArtifact
   )
+
+  // Diagnostic log (only on key transitions)
+  useEffect(() => {
+    console.log('[ArtifactsPanel]', {
+      isLoading,
+      type: displayArtifact?.type ?? 'none',
+      htmlLen: displayArtifact?.type === 'codigo' ? (displayArtifact?.contenido?.html as string)?.length ?? 0 : '-',
+      ready: codeViewerReady,
+      delay: shouldDelayLiveCodePreview,
+    })
+  }, [isLoading, codeViewerReady, shouldDelayLiveCodePreview, displayArtifact?.type])
 
   const artifactRenderKey = hasEdited
     ? `artifact-v${artifactVersion}`
     : displayArtifact
-      ? `${displayArtifact.type}-${displayArtifact.titulo}-${displayArtifact.raw.length}-${isLoading ? 'loading' : 'ready'}`
+      ? `${displayArtifact.type}-${displayArtifact.titulo}-${isLoading ? 'loading' : 'ready'}`
       : 'latest-artifact'
 
   const handleSendEdit = useCallback(async (instruction: string) => {
