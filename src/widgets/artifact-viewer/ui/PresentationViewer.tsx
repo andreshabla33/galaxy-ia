@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { exportToPptx } from '@/shared/lib/export-pptx'
 
 interface Slide {
@@ -107,25 +107,23 @@ function ImagePreloader({
     let done = 0
 
     async function processNext() {
-      const prompt = queue.shift()
-      if (!prompt || cancelled) return
+      while (queue.length > 0 && !cancelled) {
+        const prompt = queue.shift()
+        if (!prompt) break
 
-      setCurrentPrompt(prompt)
-      await generateSingleImage(prompt)
-      if (cancelled) return
-      done++
-      setCompleted(done)
-
-      if (done >= total) {
-        onComplete()
-      } else {
-        await processNext()
+        setCurrentPrompt(prompt)
+        await generateSingleImage(prompt)
+        if (cancelled) return
+        done++
+        setCompleted(done)
       }
     }
 
-    // Start 3 parallel workers
+    // Start 3 parallel workers — onComplete fires when ALL workers finish
     const workers = Array.from({ length: Math.min(3, prompts.length) }, () => processNext())
-    Promise.all(workers)
+    Promise.all(workers).then(() => {
+      if (!cancelled) onComplete()
+    })
 
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -187,7 +185,19 @@ interface PresentationViewerProps {
 
 const KNOWN_LAYOUTS = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing']
 
-function SlideRenderer({ slide, index, total, colors }: { slide: Slide; index: number; total: number; colors: ColorScheme }) {
+// Normalize legacy/unknown layout names to the closest known layout
+function normalizeLayout(layout: string): string {
+  if (KNOWN_LAYOUTS.includes(layout)) return layout
+  // Common LLM mistake: "image-text" → treat as "image-right"
+  if (layout === 'image-text') return 'image-right'
+  // "content" or "text" → treat as "bullets"
+  if (layout === 'content' || layout === 'text') return 'bullets'
+  return layout
+}
+
+function SlideRenderer({ slide: rawSlide, index, total, colors }: { slide: Slide; index: number; total: number; colors: ColorScheme }) {
+  // Normalize the layout so legacy names like "image-text" render correctly
+  const slide = useMemo(() => ({ ...rawSlide, layout: normalizeLayout(rawSlide.layout) }), [rawSlide])
   const hasImage = !!slide.image_prompt
 
   return (
@@ -351,13 +361,13 @@ function SlideRenderer({ slide, index, total, colors }: { slide: Slide; index: n
         {!KNOWN_LAYOUTS.includes(slide.layout) && (
           <div className={`${hasImage ? 'flex items-center gap-8' : ''}`}>
             <div className="flex-1">
-              <h2 className="text-2xl font-semibold text-white/90 mb-4">{slide.title}</h2>
-              {slide.content && <p className="text-white/70">{slide.content}</p>}
+              <h2 className="text-2xl font-semibold mb-4" style={{ color: colors.text }}>{slide.title}</h2>
+              {slide.content && <p style={{ color: colors.muted }}>{slide.content}</p>}
               {slide.bullets && (
                 <ul className="space-y-2 mt-4">
                   {slide.bullets.map((b, i) => (
-                    <li key={i} className="text-white/70 flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shrink-0" />
+                    <li key={i} className="flex items-start gap-2" style={{ color: colors.muted }}>
+                      <span className="w-1.5 h-1.5 rounded-full mt-2 shrink-0" style={{ backgroundColor: colors.primary }} />
                       {b}
                     </li>
                   ))}
@@ -375,7 +385,20 @@ function SlideRenderer({ slide, index, total, colors }: { slide: Slide; index: n
 }
 
 export function PresentationViewer({ contenido, titulo }: PresentationViewerProps) {
-  const slides = (Array.isArray(contenido.slides) ? contenido.slides : []) as Slide[]
+  // Stabilize slides reference — only recompute when the actual data changes
+  const slidesKey = JSON.stringify(contenido.slides)
+  
+  useEffect(() => {
+    console.log('[PresentationViewer] Mount with titulo:', titulo)
+    console.log('[PresentationViewer] Raw contenido:', contenido)
+    console.log('[PresentationViewer] Is slides array?', Array.isArray(contenido.slides))
+  }, [titulo, contenido])
+
+  const slides = useMemo(
+    () => (Array.isArray(contenido.slides) ? contenido.slides : []) as Slide[],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [slidesKey]
+  )
   const colors = useMemo(() => parseColorScheme(contenido), [contenido])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [exporting, setExporting] = useState(false)
@@ -390,6 +413,20 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
     }
     return prompts
   }, [slides])
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') {
+      setCurrentSlide(prev => Math.max(0, prev - 1))
+    } else if (e.key === 'ArrowRight') {
+      setCurrentSlide(prev => Math.min(slides.length - 1, prev + 1))
+    }
+  }, [slides.length])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   // Phase: 'loading' (preloading images) or 'ready' (show presentation)
   const allCached = imagePrompts.every(p => imageCache.has(p))

@@ -190,6 +190,15 @@ function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>) {
   }
 }
 
+// Normalize legacy/unknown layout names to the closest known layout
+function normalizeLayout(layout: string): string {
+  const KNOWN = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing']
+  if (KNOWN.includes(layout)) return layout
+  if (layout === 'image-text') return 'image-right'
+  if (layout === 'content' || layout === 'text') return 'bullets'
+  return layout
+}
+
 export async function exportToPptx(data: PresentationData, titulo: string, images: Map<string, string>) {
   // Dynamic import — solo se carga cuando el usuario hace clic en "Descargar"
   const PptxGenJS = (await import('pptxgenjs')).default
@@ -200,7 +209,8 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
 
   const slides = (data.slides || []) as Slide[]
 
-  for (const slide of slides) {
+  for (const rawSlide of slides) {
+    const slide = { ...rawSlide, layout: normalizeLayout(rawSlide.layout) }
     switch (slide.layout) {
       case 'title': addTitleSlide(pptx, slide, images); break
       case 'image-left': addImageLeftSlide(pptx, slide, images); break

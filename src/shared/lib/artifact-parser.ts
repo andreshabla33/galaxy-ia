@@ -73,6 +73,11 @@ function recoverFromMalformedJSON(type: ArtifactType, text: string): ParsedArtif
 }
 
 export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
+  console.log(`[parser] Parsing artifact from text length: ${text.length}`)
+  if (text.includes('artifact:presentacion')) {
+    console.log('[parser] Found presentation artifact marker in text')
+  }
+
   // --- PASS 0: TAGS (Claude-style, most robust for code) ---
   // Formato: <artifact type="codigo" title="Login" framework="react">...code...</artifact>
   // Robustez: Maneja casos donde el LLM envuelve el tag en bloques de código markdown o olvida el tag de cierre.
@@ -245,6 +250,14 @@ function buildContenido(type: ArtifactType, parsed: Record<string, unknown>): Re
       }
 
     case 'presentacion':
+      console.log('[parser] Building presentation contenido:', JSON.stringify(parsed).substring(0, 150) + '...')
+      if (!parsed.slides) {
+        console.warn('[parser] Warning: No slides array found in presentation parsed JSON', Object.keys(parsed))
+      } else if (!Array.isArray(parsed.slides)) {
+        console.warn('[parser] Warning: slides is not an array, type is:', typeof parsed.slides)
+      } else {
+        console.log(`[parser] Found ${parsed.slides.length} slides`)
+      }
       return {
         slides: parsed.slides || [],
         theme: parsed.theme || 'dark',

@@ -108,6 +108,26 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   }, [messages])
 
   const latestArtifactTitleRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!latestArtifact) return
+
+    // Solo log en dev o si falla
+    console.log('[ArtifactsPanel] Received new artifact:', {
+      type: latestArtifact.type,
+      titulo: latestArtifact.titulo,
+      hasContenido: !!latestArtifact.contenido,
+      rawKeys: Object.keys(latestArtifact.contenido || {})
+    })
+
+    const newArtifact: any = {
+      id: crypto.randomUUID(),
+      type: latestArtifact.type,
+      titulo: latestArtifact.titulo,
+      contenido: latestArtifact.contenido,
+      createdAt: new Date(),
+    }
+  }, [latestArtifact])
+
   if (latestArtifact && latestArtifact.titulo !== latestArtifactTitleRef.current) {
     latestArtifactTitleRef.current = latestArtifact.titulo
     if (!currentArtifact || currentArtifact.titulo !== latestArtifact.titulo) {

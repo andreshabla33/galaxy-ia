@@ -43,8 +43,11 @@ REGLAS ESTRICTAS:
 1. Genera SIEMPRE una presentación como JSON estructurado.
 2. Cada slide debe tener un layout claro y contenido conciso.
 3. Mínimo 8 slides, máximo 20.
-4. Los layouts disponibles son: "title", "bullets", "two-column", "image-text", "quote", "stats", "closing".
-5. NO saludes, NO te despidas, ve directo a la presentación.
+4. Los layouts disponibles son: "title", "bullets", "two-column", "image-left", "image-right", "quote", "stats", "closing".
+5. SIEMPRE incluye "image_prompt" (en INGLÉS, descriptivo, 20+ palabras, con estilo/iluminación/4K) en al menos 5 slides.
+6. Para slides visuales usa "image-left" o "image-right" con "content" y/o "bullets".
+7. El slide "title" también DEBE tener image_prompt.
+8. NO saludes, NO te despidas, ve directo a la presentación.
 
 FORMATO DE OUTPUT:
 \`\`\`artifact:presentacion
@@ -56,13 +59,27 @@ FORMATO DE OUTPUT:
     {
       "layout": "title",
       "title": "Título principal",
-      "subtitle": "Subtítulo descriptivo"
+      "subtitle": "Subtítulo descriptivo",
+      "image_prompt": "Professional corporate scene with modern office and warm lighting, 4K cinematic photography"
     },
     {
       "layout": "bullets",
       "title": "Título de la sección",
       "bullets": ["Punto 1", "Punto 2", "Punto 3"],
       "notes": "Notas del presentador"
+    },
+    {
+      "layout": "image-left",
+      "title": "Sección visual",
+      "content": "Descripción del contenido...",
+      "bullets": ["Detalle 1", "Detalle 2"],
+      "image_prompt": "Descriptive prompt in English for AI image generation, 4K cinematic"
+    },
+    {
+      "layout": "image-right",
+      "title": "Otra sección visual",
+      "content": "Descripción...",
+      "image_prompt": "Descriptive prompt in English, photorealistic, detailed lighting"
     },
     {
       "layout": "two-column",
@@ -92,7 +109,8 @@ FORMATO DE OUTPUT:
 }
 \`\`\`
 
-Asegúrate de que el JSON sea válido. Usa layouts variados para hacer la presentación visualmente interesante.`
+Asegúrate de que el JSON sea válido. Usa layouts variados para hacer la presentación visualmente interesante.
+NUNCA uses el layout "image-text" — usa "image-left" o "image-right" en su lugar.`
 
 // ============================================================
 // PROMPT ESPECIALIZADO: CÓDIGO FRONTEND
