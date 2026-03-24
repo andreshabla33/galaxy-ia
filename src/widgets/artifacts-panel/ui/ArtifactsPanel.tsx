@@ -34,6 +34,7 @@ let _cachedHistory: EditMessage[] = []
 
 function AssistantMessage({ content }: { content: string }) {
   const artifact = useMemo(() => {
+    console.log(`[AssistantMessage] Received content of length: ${content.length}`)
     const a = parseArtifactFromResponse(content)
     if (a) console.log(`[AssistantMessage] Parsed artifact: ${a.type} - ${a.titulo}`)
     return a
@@ -119,13 +120,13 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       rawKeys: Object.keys(latestArtifact.contenido || {})
     })
 
-    const newArtifact: any = {
-      id: crypto.randomUUID(),
-      type: latestArtifact.type,
-      titulo: latestArtifact.titulo,
-      contenido: latestArtifact.contenido,
-      createdAt: new Date(),
-    }
+    // const newArtifact = {
+    //   id: crypto.randomUUID(),
+    //   type: latestArtifact.type,
+    //   titulo: latestArtifact.titulo,
+    //   contenido: latestArtifact.contenido,
+    //   createdAt: new Date(),
+    // }
   }, [latestArtifact])
 
   if (latestArtifact && latestArtifact.titulo !== latestArtifactTitleRef.current) {
@@ -186,7 +187,7 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       ready: codeViewerReady,
       delay: shouldDelayLiveCodePreview,
     })
-  }, [isLoading, codeViewerReady, shouldDelayLiveCodePreview, displayArtifact?.type])
+  }, [isLoading, displayArtifact?.type, displayArtifact?.contenido?.html, codeViewerReady, shouldDelayLiveCodePreview])
 
   const artifactRenderKey = hasEdited
     ? `artifact-v${artifactVersion}`

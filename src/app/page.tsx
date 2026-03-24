@@ -92,15 +92,19 @@ export default function Home() {
   // Guardar artefacto en Supabase cuando el LLM genera uno
   const handleArtifact = useCallback(async (artifact: ParsedArtifact) => {
     if (!user) { console.warn('No user, skipping artifact save'); return }
-    const { error } = await supabase.from('artefactos').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('artefactos') as any).insert({
       tipo: artifact.type,
       titulo: artifact.titulo,
       subtipo: artifact.subtipo,
       contenido: artifact.contenido,
       metadata: {
-        ...(artifact.type === 'documento' ? { word_count: artifact.contenido.word_count } : {}),
-        ...(artifact.type === 'presentacion' ? { total_slides: artifact.contenido.total_slides } : {}),
-        ...(artifact.type === 'codigo' ? { framework: artifact.contenido.framework } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(artifact.type === 'documento' ? { word_count: (artifact.contenido as any).word_count } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(artifact.type === 'presentacion' ? { total_slides: (artifact.contenido as any).total_slides } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(artifact.type === 'codigo' ? { framework: (artifact.contenido as any).framework } : {}),
       },
       creado_por: user.id,
     })

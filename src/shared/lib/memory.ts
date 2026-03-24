@@ -34,7 +34,8 @@ export async function saveArtifactMemory(
       return;
     }
 
-    const { error } = await supabase.from('artifact_embeddings').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('artifact_embeddings') as any).insert({
       artefacto_id: artefactoId,
       usuario_id: usuarioId,
       content_summary: contentSummary,
@@ -63,7 +64,8 @@ export async function searchArtifactMemory(
   try {
     const embedding = await generateEmbedding(query, apiKey, provider)
 
-    const { data, error } = await supabase.rpc('match_artifacts', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)('match_artifacts', {
       query_embedding: JSON.stringify(embedding),
       match_threshold: matchThreshold,
       match_count: matchCount,
