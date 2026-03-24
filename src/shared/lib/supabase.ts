@@ -20,16 +20,24 @@ export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
 })
 
 export async function signInWithGoogle() {
+  const redirectUrl = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3000/auth/callback'
+    : `${window.location.origin}/auth/callback`
+  
   return supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: { redirectTo: redirectUrl },
   })
 }
 
 export async function signInWithGithub() {
+  const redirectUrl = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3000/auth/callback'
+    : `${window.location.origin}/auth/callback`
+  
   return supabase.auth.signInWithOAuth({
     provider: 'github',
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: { redirectTo: redirectUrl },
   })
 }
 

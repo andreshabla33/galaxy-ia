@@ -74,8 +74,14 @@ function recoverFromMalformedJSON(type: ArtifactType, text: string): ParsedArtif
 
 export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
   console.log(`[parser] Parsing artifact from text length: ${text.length}`)
+  console.log(`[parser] First 500 chars of text:`, text.substring(0, 500))
   if (text.includes('artifact:presentacion')) {
     console.log('[parser] Found presentation artifact marker in text')
+  } else {
+    console.log('[parser] No artifact:presentacion marker found. Checking for other markers...')
+    console.log('[parser] Contains "artifact":', text.includes('artifact'))
+    console.log('[parser] Contains "presentacion":', text.includes('presentacion'))
+    console.log('[parser] Contains "```":', text.includes('```'))
   }
 
   // --- PASS 0: TAGS (Claude-style, most robust for code) ---
