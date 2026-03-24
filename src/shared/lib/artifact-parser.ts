@@ -35,6 +35,59 @@ function cleanJSON(jsonStr: string): string {
 }
 
 /**
+ * Attempts to parse a JSON string with multiple fallback strategies:
+ * 1. Direct parse
+ * 2. Cleaned parse (via cleanJSON)
+ * 3. Partial JSON repair (close dangling brackets/arrays, remove trailing commas)
+ * Returns null if all strategies fail (e.g., JSON still streaming).
+ */
+function tryParseJSON(str: string): Record<string, any> | null {
+  // Strategy 1: Direct parse
+  try {
+    return JSON.parse(str)
+  } catch { /* continue */ }
+
+  // Strategy 2: Clean + parse
+  try {
+    return JSON.parse(cleanJSON(str))
+  } catch { /* continue */ }
+
+  // Strategy 3: Partial JSON repair (industry standard from LLM output handling)
+  // Close dangling brackets/braces and remove trailing commas
+  try {
+    let repaired = str.trim()
+    // Remove trailing commas before attempting to close
+    repaired = repaired.replace(/,\s*$/, '')
+    
+    // Count unclosed brackets
+    let openBraces = 0, openBrackets = 0
+    let inString = false, escape = false
+    for (const ch of repaired) {
+      if (escape) { escape = false; continue }
+      if (ch === '\\') { escape = true; continue }
+      if (ch === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (ch === '{') openBraces++
+      if (ch === '}') openBraces--
+      if (ch === '[') openBrackets++
+      if (ch === ']') openBrackets--
+    }
+
+    // Close dangling structures
+    for (let i = 0; i < openBrackets; i++) repaired += ']'
+    for (let i = 0; i < openBraces; i++) repaired += '}'
+
+    // Final cleanup: remove trailing commas before closing brackets
+    repaired = repaired.replace(/,\s*([\]}])/g, '$1')
+
+    return JSON.parse(repaired)
+  } catch {
+    // All strategies failed — JSON is likely still streaming
+    return null
+  }
+}
+
+/**
  * Intenta extraer campos específicos de un bloque de texto que se supone es JSON malformado.
  */
 function recoverFromMalformedJSON(type: ArtifactType, text: string): ParsedArtifact | null {
@@ -73,16 +126,8 @@ function recoverFromMalformedJSON(type: ArtifactType, text: string): ParsedArtif
 }
 
 export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
-  console.log(`[parser] Parsing artifact from text length: ${text.length}`)
-  console.log(`[parser] First 500 chars of text:`, text.substring(0, 500))
-  if (text.includes('artifact:presentacion')) {
-    console.log('[parser] Found presentation artifact marker in text')
-  } else {
-    console.log('[parser] No artifact:presentacion marker found. Checking for other markers...')
-    console.log('[parser] Contains "artifact":', text.includes('artifact'))
-    console.log('[parser] Contains "presentacion":', text.includes('presentacion'))
-    console.log('[parser] Contains "```":', text.includes('```'))
-  }
+  // Minimal logging — only log on first detection or significant events
+  // (previous version logged 5+ lines per chunk, flooding the console during streaming)
 
   // --- PASS 0: TAGS (Claude-style, most robust for code) ---
   // Formato: <artifact type="codigo" title="Login" framework="react">...code...</artifact>
@@ -118,7 +163,7 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
     // Limpieza de posibles backticks al final si el stream cortó ahí
     content = content.replace(/\n?```$/i, '')
     
-    // Extraer atributos
+    // 4. Extraer atributos
     // Soporta comillas simples o dobles, con o sin espacios.
     const typeMatch = attrStr.match(/type=["']?([^"'\s>]+)["']?/i)
     const titleMatch = attrStr.match(/title=["']?([^"'>]+)["']?/i)
@@ -129,11 +174,29 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
     const framework = frameworkMatch ? frameworkMatch[1] : 'react'
 
     if (type) {
+      let finalParsed: Record<string, any> = { titulo, framework, html: content, contenido: content }
+      
+      // PASS: JSON Promotion for non-code artifacts (presentacion, imagen, documento)
+      // Uses "partial JSON repair" pattern (industry best practice from Claude/v0)
+      if (type === 'presentacion' || type === 'imagen') {
+        const trimmed = content.trim()
+        // Only attempt parse when content starts with { (looks like JSON)
+        if (trimmed.startsWith('{')) {
+          const jsonContent = tryParseJSON(trimmed)
+          if (jsonContent) {
+            finalParsed = { ...finalParsed, ...jsonContent }
+            console.log(`[parser] Successfully promoted ${type} JSON from inside tag`)
+          }
+          // If parse fails, it's likely still streaming — silently continue
+          // The viewer will show "Generando..." until the JSON is complete
+        }
+      }
+
       return {
         type,
-        titulo: titulo.trim(),
-        subtipo: 'componente',
-        contenido: buildContenido(type, { titulo, framework, html: content, contenido: content }),
+        titulo: (finalParsed.titulo || titulo).trim(),
+        subtipo: (finalParsed.subtipo || 'componente'),
+        contenido: buildContenido(type, finalParsed),
         raw: raw
       }
     }
@@ -256,13 +319,9 @@ function buildContenido(type: ArtifactType, parsed: Record<string, unknown>): Re
       }
 
     case 'presentacion':
-      console.log('[parser] Building presentation contenido:', JSON.stringify(parsed).substring(0, 150) + '...')
-      if (!parsed.slides) {
-        console.warn('[parser] Warning: No slides array found in presentation parsed JSON', Object.keys(parsed))
-      } else if (!Array.isArray(parsed.slides)) {
-        console.warn('[parser] Warning: slides is not an array, type is:', typeof parsed.slides)
-      } else {
-        console.log(`[parser] Found ${parsed.slides.length} slides`)
+      // Only log when slides are successfully found (avoid spam during streaming)
+      if (Array.isArray(parsed.slides) && parsed.slides.length > 0) {
+        console.log(`[parser] Presentation ready: ${parsed.slides.length} slides`)
       }
       return {
         slides: parsed.slides || [],

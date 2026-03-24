@@ -19,6 +19,7 @@ interface ArtifactsPanelProps {
   isLoading: boolean;
   isOpen: boolean;
   onClose: () => void;
+  lastArtifact?: ParsedArtifact | null;
 }
 
 interface EditMessage {
@@ -77,7 +78,7 @@ function AssistantMessage({ content }: { content: string }) {
   )
 }
 
-export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }: ArtifactsPanelProps) {
+export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose, lastArtifact: lastArtifactProp }: ArtifactsPanelProps) {
   const { apiKey, provider } = useAppStore()
   const [currentArtifact, setCurrentArtifact] = useState<ParsedArtifact | null>(_cachedArtifact)
   const [artifactVersion, setArtifactVersion] = useState(_cachedVersion)
@@ -101,7 +102,8 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
     return null
   }, [messages])
 
-  const displayArtifact = currentArtifact || latestArtifact
+  // 3-tier fallback: edited artifact → parsed from messages → from useChat hook
+  const displayArtifact = currentArtifact || latestArtifact || (lastArtifactProp ?? null)
   artifactRef.current = displayArtifact
 
   const lastUserMessage = useMemo(() => {
@@ -111,22 +113,10 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   const latestArtifactTitleRef = useRef<string | null>(null)
   useEffect(() => {
     if (!latestArtifact) return
-
-    // Solo log en dev o si falla
-    console.log('[ArtifactsPanel] Received new artifact:', {
-      type: latestArtifact.type,
-      titulo: latestArtifact.titulo,
-      hasContenido: !!latestArtifact.contenido,
-      rawKeys: Object.keys(latestArtifact.contenido || {})
-    })
-
-    // const newArtifact = {
-    //   id: crypto.randomUUID(),
-    //   type: latestArtifact.type,
-    //   titulo: latestArtifact.titulo,
-    //   contenido: latestArtifact.contenido,
-    //   createdAt: new Date(),
-    // }
+    // Only log once per new artifact (avoid spam during streaming)
+    if (latestArtifact.titulo !== latestArtifactTitleRef.current) {
+      console.log('[ArtifactsPanel] New artifact detected:', latestArtifact.type, latestArtifact.titulo)
+    }
   }, [latestArtifact])
 
   if (latestArtifact && latestArtifact.titulo !== latestArtifactTitleRef.current) {
@@ -155,10 +145,10 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
       // Stream starting — reset readiness
       wasStreamingRef.current = true
       setCodeViewerReady(false)
-    } else if (wasStreamingRef.current && displayArtifact?.type === 'codigo') {
-      // Stream just finished with a code artifact — defer Sandpack mount
+    } else if (wasStreamingRef.current && (displayArtifact?.type === 'codigo' || displayArtifact?.type === 'presentacion')) {
+      // Stream just finished with a code/presentation artifact — defer mount
       wasStreamingRef.current = false
-      console.log('[ArtifactsPanel] Stream ended for code artifact, deferring Sandpack mount…')
+      console.log(`[ArtifactsPanel] Stream ended for ${displayArtifact.type} artifact, deferring mount…`)
       const timer = setTimeout(() => {
         console.log('[ArtifactsPanel] DOM stable → mounting Sandpack')
         setCodeViewerReady(true)
@@ -171,9 +161,12 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
     }
   }, [isLoading, displayArtifact?.type])
 
+  // Delay rendering for code AND presentation artifacts during streaming.
+  // Presentations: prevents 20+ re-mounts, "No hay slides" flash, and duplicate image API calls.
+  // Code: prevents Sandpack iframe dimension issues (original deferred mount pattern).
   const shouldDelayLiveCodePreview = Boolean(
     displayArtifact &&
-    displayArtifact.type === 'codigo' &&
+    (displayArtifact.type === 'codigo' || displayArtifact.type === 'presentacion') &&
     (isLoading || !codeViewerReady) &&
     !currentArtifact
   )
@@ -192,7 +185,11 @@ export default function ArtifactsPanel({ messages, isLoading, isOpen, onClose }:
   const artifactRenderKey = hasEdited
     ? `artifact-v${artifactVersion}`
     : displayArtifact
-      ? `${displayArtifact.type}-${displayArtifact.titulo}-${isLoading ? 'loading' : 'ready'}`
+      ? displayArtifact.type === 'presentacion'
+        // Presentation: stable key — PresentationViewer manages its own loading phases internally
+        ? `${displayArtifact.type}-${displayArtifact.titulo}`
+        // Code/Others: include isLoading for deferred Sandpack mount pattern
+        : `${displayArtifact.type}-${displayArtifact.titulo}-${isLoading ? 'loading' : 'ready'}`
       : 'latest-artifact'
 
   const handleSendEdit = useCallback(async (instruction: string) => {

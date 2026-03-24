@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { exportToPptx } from '@/shared/lib/export-pptx'
+import { ThinkingIndicator } from '@/widgets/thinking-indicator'
 
 interface Slide {
   layout: string
@@ -70,18 +71,27 @@ async function generateSingleImage(prompt: string): Promise<{ prompt: string; ur
   if (imageCache.has(prompt)) return { prompt, url: imageCache.get(prompt)! }
 
   try {
+    // Per-image timeout of 15 seconds to avoid hanging on slow/failing API
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
     const res = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, aspectRatio: '16:9', quality: 'pro' }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
+
     const data = await res.json()
     if (data.success && data.image) {
       imageCache.set(prompt, data.image)
       return { prompt, url: data.image }
     }
+    console.warn('[ImagePreloader] Image generation failed for prompt:', prompt.slice(0, 60), data.error)
     return { prompt, url: null }
-  } catch {
+  } catch (err) {
+    console.warn('[ImagePreloader] Fetch error for prompt:', prompt.slice(0, 60), err instanceof Error ? err.message : err)
     return { prompt, url: null }
   }
 }
@@ -95,26 +105,61 @@ function ImagePreloader({
 }) {
   const [completed, setCompleted] = useState(0)
   const [currentPrompt, setCurrentPrompt] = useState('')
+  const [failed, setFailed] = useState(0)
   const total = prompts.length
 
   useEffect(() => {
     if (prompts.length === 0) { onComplete(); return }
 
     let cancelled = false
+    let apiDown = false // Set when API key is missing — skip remaining images instantly
+
+    // Safety timeout: show presentation after 30s regardless of image status
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('[ImagePreloader] Safety timeout reached (30s), showing presentation without all images')
+        cancelled = true
+        onComplete()
+      }
+    }, 30000)
 
     // Generate all images in parallel (max 3 concurrent to avoid rate limits)
     const queue = [...prompts]
     let done = 0
+    let failCount = 0
 
     async function processNext() {
       while (queue.length > 0 && !cancelled) {
+        // If API is down (missing key), skip remaining images instantly
+        if (apiDown) {
+          done += queue.length
+          failCount += queue.length
+          setCompleted(done)
+          setFailed(failCount)
+          queue.length = 0
+          break
+        }
+
         const prompt = queue.shift()
         if (!prompt) break
 
         setCurrentPrompt(prompt)
-        await generateSingleImage(prompt)
+        const result = await generateSingleImage(prompt)
         if (cancelled) return
         done++
+        if (!result.url) {
+          failCount++
+          setFailed(failCount)
+          // Detect API key not configured → skip all remaining images
+          if (failCount === 1) {
+            // First failure: check if it's a config issue (all will fail the same way)
+            console.warn('[ImagePreloader] First image failed, checking if API is down...')
+            apiDown = true
+          }
+        } else {
+          // If one succeeded, API is NOT down
+          apiDown = false
+        }
         setCompleted(done)
       }
     }
@@ -122,10 +167,15 @@ function ImagePreloader({
     // Start 3 parallel workers — onComplete fires when ALL workers finish
     const workers = Array.from({ length: Math.min(3, prompts.length) }, () => processNext())
     Promise.all(workers).then(() => {
+      clearTimeout(safetyTimer)
+      if (!cancelled) onComplete()
+    }).catch(() => {
+      // Even if something unexpected fails, still show the presentation
+      clearTimeout(safetyTimer)
       if (!cancelled) onComplete()
     })
 
-    return () => { cancelled = true }
+    return () => { cancelled = true; clearTimeout(safetyTimer) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0
@@ -149,9 +199,14 @@ function ImagePreloader({
         <h3 className="text-sm font-medium text-white/70 mb-1">Generando imágenes con IA</h3>
         <p className="text-xs text-white/30">
           {completed < total
-            ? `Imagen ${completed + 1} de ${total} — Nano Banana Pro 4K`
+            ? `Imagen ${completed + 1} de ${total} — Nano Banana Pro`
             : 'Finalizando...'}
         </p>
+        {failed > 0 && (
+          <p className="text-xs text-amber-400/60 mt-1">
+            {failed} imagen{failed > 1 ? 'es' : ''} no disponible{failed > 1 ? 's' : ''}
+          </p>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -174,6 +229,14 @@ function ImagePreloader({
           &quot;{currentPrompt.slice(0, 60)}...&quot;
         </p>
       )}
+
+      {/* Skip button — always available */}
+      <button
+        onClick={onComplete}
+        className="text-xs px-4 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-white/40 hover:bg-white/[0.08] hover:text-white/60 transition-all mt-2"
+      >
+        Omitir imágenes y ver presentación
+      </button>
     </div>
   )
 }
@@ -430,9 +493,16 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
 
   // Phase: 'loading' (preloading images) or 'ready' (show presentation)
   const allCached = imagePrompts.every(p => imageCache.has(p))
-  const [phase, setPhase] = useState<'loading' | 'ready'>(
-    imagePrompts.length === 0 || allCached ? 'ready' : 'loading'
-  )
+  const [phase, setPhase] = useState<'loading' | 'ready'>('ready')
+
+  // Derive phase from imagePrompts — if there are uncached prompts, go to loading
+  useEffect(() => {
+    if (imagePrompts.length > 0 && !imagePrompts.every(p => imageCache.has(p))) {
+      setPhase('loading')
+    } else {
+      setPhase('ready')
+    }
+  }, [imagePrompts])
 
   const handleDownload = async () => {
     setExporting(true)
@@ -446,7 +516,15 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
   }
 
   if (slides.length === 0) {
-    return <div className="p-8 text-white/40 text-center">No hay slides para mostrar</div>
+    return (
+      <div className="flex flex-col h-full bg-zinc-950 items-center justify-center">
+        {/* We use a mock user message to trigger the presentation-specific loading messages inside ThinkingIndicator */}
+        <ThinkingIndicator userMessage="crea una presentación" />
+        <p className="text-white/40 text-sm mt-8 animate-pulse">
+          Tu arte ya está próxima a salir...
+        </p>
+      </div>
+    )
   }
 
   // Phase 1: Preload all images

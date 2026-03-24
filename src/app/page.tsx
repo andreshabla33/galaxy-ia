@@ -321,8 +321,8 @@ export default function Home() {
       <SettingsModal />
       {showTemplates && <TemplateSelector onSelectTemplate={handleTemplateSelect} onClose={() => setShowTemplates(false)} />}
 
-      {/* User avatar menu */}
-      {user && (
+      {/* User avatar menu — hidden when panel overlaps on desktop */}
+      {user && !(isDesktop && panelOpen && messages.length > 0) && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
           <UserMenu user={user} />
         </div>
@@ -352,15 +352,24 @@ export default function Home() {
       {/* Galaxy Canvas — always rendered as background */}
       <GalaxyCanvas isListening={isListening || isLoading} volume={isLoading ? 0.3 : volume} frequencyRef={frequencyRef} artifactType={lastArtifact?.type ?? null} panelOpen={isDesktop && panelOpen && messages.length > 0} />
 
+      {/* Click-catcher: closes panel when clicking on the galaxy canvas area */}
+      {isDesktop && panelOpen && messages.length > 0 && (
+        <div
+          className="fixed inset-0 z-[5]"
+          onClick={() => setPanelOpen(false)}
+        />
+      )}
+
       {/* ═══ DESKTOP LAYOUT: side-by-side ═══ */}
       {isDesktop && (
-        <div className="flex w-full h-screen relative z-10">
+        <div className="flex w-full h-screen relative z-10" onClick={(e) => e.stopPropagation()}>
           {galaxyChatSection}
           <ArtifactsPanel
             messages={messages}
             isLoading={isLoading}
             isOpen={panelOpen}
             onClose={() => setPanelOpen(false)}
+            lastArtifact={lastArtifact}
           />
         </div>
       )}
@@ -376,6 +385,7 @@ export default function Home() {
                   isLoading={isLoading}
                   isOpen={true}
                   onClose={() => setShowArtifactOverlay(false)}
+                  lastArtifact={lastArtifact}
                 />
               </div>
               <div className="p-4 bg-zinc-950/80 border-t border-white/10 shrink-0 backdrop-blur-xl">
@@ -405,6 +415,7 @@ export default function Home() {
                   isLoading={isLoading}
                   isOpen={true}
                   onClose={() => setShowArtifactOverlay(false)}
+                  lastArtifact={lastArtifact}
                 />
               </div>
               <div className="p-3 bg-zinc-950/80 border-t border-white/10 shrink-0 backdrop-blur-xl pb-6">

@@ -37,10 +37,21 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
   const onArtifactRef = useRef(onArtifact)
   onArtifactRef.current = onArtifact
 
+  // Guard: skip loadHistory for sessions we just created (messages are already in memory)
+  const skipNextHistoryLoadRef = useRef(false)
+
   // Cargar historial si hay sessionId
   useEffect(() => {
     if (!sessionId) {
       setMessages([])
+      return
+    }
+
+    // Skip loading history for sessions we just created — messages are already correct in memory
+    // This prevents the race condition where loadHistory overwrites the streaming assistant message
+    if (skipNextHistoryLoadRef.current) {
+      console.log('[useChat] Skipping loadHistory for newly created session:', sessionId)
+      skipNextHistoryLoadRef.current = false
       return
     }
 
@@ -117,6 +128,9 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
 
           if (!sessionError && session) {
             currentSessionId = session.id
+            // CRITICAL: Set flag BEFORE triggering sessionId change to prevent
+            // loadHistory from overwriting in-memory messages during streaming
+            skipNextHistoryLoadRef.current = true
             if (onSessionCreated) onSessionCreated(session.id)
           }
         }
@@ -216,6 +230,18 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
         })
       }
 
+      // ── Stream complete: force final message state synchronously ──
+      // This MUST happen before setIsLoading(false) to prevent a race condition
+      // where ArtifactsPanel re-renders with isLoading=false but stale messages.
+      setMessages((prev) => {
+        const newMessages = [...prev]
+        const lastMessage = newMessages[newMessages.length - 1]
+        if (lastMessage && lastMessage.role === 'assistant') {
+          newMessages[newMessages.length - 1] = { ...lastMessage, content: fullContent }
+        }
+        return newMessages
+      })
+
       // Persistir mensaje del asistente al finalizar el stream
       if (currentSessionId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,6 +259,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
       // Detectar artefacto en la respuesta completa
       const artifact = parseArtifactFromResponse(fullContent)
       if (artifact) {
+        console.log('[useChat] Artifact detected after stream:', artifact.type, artifact.titulo)
         setLastArtifact(artifact)
         onArtifactRef.current?.(artifact)
       }
