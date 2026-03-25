@@ -41,7 +41,7 @@ function cleanJSON(jsonStr: string): string {
  * 3. Partial JSON repair (close dangling brackets/arrays, remove trailing commas)
  * Returns null if all strategies fail (e.g., JSON still streaming).
  */
-function tryParseJSON(str: string): Record<string, any> | null {
+function tryParseJSON(str: string): Record<string, unknown> | null {
   // Strategy 1: Direct parse
   try {
     return JSON.parse(str)
@@ -174,7 +174,7 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
     const framework = frameworkMatch ? frameworkMatch[1] : 'react'
 
     if (type) {
-      let finalParsed: Record<string, any> = { titulo, framework, html: content, contenido: content }
+      let finalParsed: Record<string, unknown> = { titulo, framework, html: content, contenido: content }
       
       // PASS: JSON Promotion for non-code artifacts (presentacion, imagen, documento)
       // Uses "partial JSON repair" pattern (industry best practice from Claude/v0)
@@ -194,8 +194,8 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
 
       return {
         type,
-        titulo: (finalParsed.titulo || titulo).trim(),
-        subtipo: (finalParsed.subtipo || 'componente'),
+        titulo: String(finalParsed.titulo || titulo).trim(),
+        subtipo: String(finalParsed.subtipo || 'componente'),
         contenido: buildContenido(type, finalParsed),
         raw: raw
       }

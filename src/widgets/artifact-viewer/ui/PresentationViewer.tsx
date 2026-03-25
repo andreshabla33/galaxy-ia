@@ -492,7 +492,6 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
   }, [handleKeyDown])
 
   // Phase: 'loading' (preloading images) or 'ready' (show presentation)
-  const allCached = imagePrompts.every(p => imageCache.has(p))
   const [phase, setPhase] = useState<'loading' | 'ready'>('ready')
 
   // Derive phase from imagePrompts — if there are uncached prompts, go to loading

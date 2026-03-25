@@ -44,8 +44,8 @@ export function LoginScreen() {
         const { error: signInError } = await signInWithEmail(email, password)
         if (signInError) throw signInError
       }
-    } catch (err: any) {
-      setError(err.message || 'Ocurrió un error en la autenticación')
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Ocurrió un error en la autenticación')
     } finally {
       setLoading(null)
     }
@@ -191,7 +191,7 @@ function AuthBackground() {
   )
 }
 
-function SocialButton({ icon, onClick, loading, label }: any) {
+function SocialButton({ icon, onClick, loading, label }: { icon: 'google' | 'github', onClick: () => void, loading: boolean, label: string }) {
   return (
     <button
       onClick={onClick}

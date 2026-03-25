@@ -59,7 +59,7 @@ export async function signInWithEmail(email: string, password: string) {
   })
 }
 
-export async function signUpWithEmail(email: string, password: string, options?: { data?: any; redirectTo?: string }) {
+export async function signUpWithEmail(email: string, password: string, options?: { data?: Record<string, unknown>; redirectTo?: string }) {
   return supabase.auth.signUp({
     email,
     password,

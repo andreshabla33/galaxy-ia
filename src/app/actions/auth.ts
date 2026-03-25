@@ -30,7 +30,7 @@ export async function signupAction(formData: FormData) {
     }
 
     return { success: true }
-  } catch (error: any) {
-    return { error: error.message || 'Error occurred' }
+  } catch (error: unknown) {
+    return { error: (error as Error).message || 'Error occurred' }
   }
 }
