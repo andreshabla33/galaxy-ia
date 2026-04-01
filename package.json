@@ -33,7 +33,7 @@
     "react-dom": "^18",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "resend": "^6.9.4",
+    "resend": "^6.10.0",
     "three": "^0.168.0",
     "zustand": "^5.0.11"
   },

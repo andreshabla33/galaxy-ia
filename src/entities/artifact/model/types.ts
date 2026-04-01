@@ -1,11 +1,13 @@
-export type ArtifactType = 'document' | 'image' | 'code' | 'presentation'
+// Canonical ArtifactType — matches the values used by prompt-loader, artifact-parser,
+// artifact-prompts, edit-prompts, and all viewers/exporters across the system.
+export type ArtifactType = 'documento' | 'presentacion' | 'codigo' | 'imagen'
 
 export interface Artifact {
   id: string;
   type: ArtifactType;
-  title: string;
-  content: string;
+  titulo: string;
+  contenido: Record<string, unknown>;
   metadata: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }

@@ -14,10 +14,12 @@ import { TemplateSelector } from '@/widgets/template-selector'
 import { supabase } from '@/shared/lib/supabase'
 import { UserMenu } from '@/widgets/user-menu'
 import { HistorySidebar } from '@/widgets/history-sidebar'
+import { PreflightForm, type DetectedIntent } from '@/widgets/preflight-form'
 import { History } from 'lucide-react'
 import type { ParsedArtifact } from '@/shared/lib/artifact-parser'
 import type { Template } from '@/shared/config/templates'
 import { saveArtifactMemory, buildArtifactSummary } from '@/shared/lib/memory'
+import { detectIntent } from '@/shared/lib/prompt-loader'
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 
 // Frases dinámicas rotativas para el estado de loading en el galaxy canvas
@@ -86,6 +88,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showArtifactOverlay, setShowArtifactOverlay] = useState(false)
+  const [preflightData, setPreflightData] = useState<{ message: string; intent: DetectedIntent } | null>(null)
   const inputRef = useRef<string>('')
   const stopListeningRef = useRef<(() => void) | null>(null)
 
@@ -93,7 +96,7 @@ export default function Home() {
   const handleArtifact = useCallback(async (artifact: ParsedArtifact) => {
     if (!user) { console.warn('No user, skipping artifact save'); return }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('artefactos') as any).insert({
+    const { data: insertedRows, error } = await (supabase.from('artefactos') as any).insert({
       tipo: artifact.type,
       titulo: artifact.titulo,
       subtipo: artifact.subtipo,
@@ -107,15 +110,16 @@ export default function Home() {
         ...(artifact.type === 'codigo' ? { framework: (artifact.contenido as any).framework } : {}),
       },
       creado_por: user.id,
-    })
+    }).select('id')
     if (error) {
       console.error('Error saving artifact:', error.message, error.details, error.hint)
     } else {
       console.log('Artifact saved:', artifact.titulo)
       // Guardar embedding para memoria de contexto (async, no bloquea)
-      if (apiKey) {
+      const artefactoId = insertedRows?.[0]?.id
+      if (apiKey && artefactoId) {
         const summary = buildArtifactSummary(artifact.type, artifact.titulo, artifact.contenido)
-        saveArtifactMemory('00000000-0000-0000-0000-000000000000', user.id, summary, apiKey, provider, {
+        saveArtifactMemory(artefactoId, user.id, summary, apiKey, provider, {
           type: artifact.type,
           titulo: artifact.titulo,
           subtipo: artifact.subtipo,
@@ -235,9 +239,37 @@ export default function Home() {
     e.preventDefault()
     if (!apiKey) { alert('Por favor, configura tu API Key en los ajustes primero.'); return }
     if (!input.trim()) return
+
+    // Detect intent — if it's a content creation request, show preflight form
+    const intent = detectIntent(input) as DetectedIntent
+    if (intent) {
+      setPreflightData({ message: input, intent })
+      return // Don't send yet — wait for preflight confirmation
+    }
+
+    // General/undetected intent — send directly
     append({ role: 'user', content: input })
     setInput('')
     if (!isDesktop) setShowArtifactOverlay(true)
+  }
+
+  // Preflight confirmed — send the enriched prompt
+  const handlePreflightConfirm = (enrichedPrompt: string) => {
+    setPreflightData(null)
+    setInput('')
+    append({ role: 'user', content: enrichedPrompt })
+    if (!isDesktop) setShowArtifactOverlay(true)
+  }
+
+  // Preflight skipped — send original message as-is
+  const handlePreflightSkip = () => {
+    if (preflightData) {
+      const msg = preflightData.message
+      setPreflightData(null)
+      setInput('')
+      append({ role: 'user', content: msg })
+      if (!isDesktop) setShowArtifactOverlay(true)
+    }
   }
 
   const handleTemplateSelect = (template: Template, topic: string) => {
@@ -320,6 +352,15 @@ export default function Home() {
     <main className="flex min-h-screen text-white overflow-hidden relative">
       <SettingsModal />
       {showTemplates && <TemplateSelector onSelectTemplate={handleTemplateSelect} onClose={() => setShowTemplates(false)} />}
+      {preflightData && (
+        <PreflightForm
+          userMessage={preflightData.message}
+          detectedIntent={preflightData.intent}
+          onConfirm={handlePreflightConfirm}
+          onSkip={handlePreflightSkip}
+          onCancel={() => setPreflightData(null)}
+        />
+      )}
 
       {/* User avatar menu — hidden when panel overlaps on desktop */}
       {user && !(isDesktop && panelOpen && messages.length > 0) && (

@@ -17,9 +17,25 @@ interface PresentationData {
   slides?: Slide[]
   theme?: string
   titulo?: string
+  color_scheme?: {
+    primary?: string
+    secondary?: string
+    background?: string
+    text?: string
+    muted?: string
+  }
 }
 
-const COLORS = {
+interface PptxColors {
+  bg: string
+  title: string
+  text: string
+  accent: string
+  muted: string
+  white: string
+}
+
+const DEFAULT_COLORS: PptxColors = {
   bg: '0B0D17',
   title: '67E8F9',
   text: 'D1D5DB',
@@ -28,8 +44,35 @@ const COLORS = {
   white: 'FFFFFF',
 }
 
+// Convert CSS color (#hex or rgba) to 6-char hex for pptxgenjs
+function toHex6(color: string): string {
+  if (!color) return ''
+  // Handle #hex
+  if (color.startsWith('#')) return color.replace('#', '').slice(0, 6)
+  // Handle rgba(r,g,b,a) — extract RGB and convert
+  const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch
+    return [r, g, b].map(c => parseInt(c).toString(16).padStart(2, '0')).join('')
+  }
+  return ''
+}
+
+function parseColors(data: PresentationData): PptxColors {
+  const cs = data.color_scheme
+  if (!cs) return DEFAULT_COLORS
+  return {
+    bg: toHex6(cs.background || '') || DEFAULT_COLORS.bg,
+    title: toHex6(cs.primary || '') || DEFAULT_COLORS.title,
+    text: toHex6(cs.text || '') || DEFAULT_COLORS.text,
+    accent: toHex6(cs.secondary || '') || DEFAULT_COLORS.accent,
+    muted: toHex6(cs.muted || '') || DEFAULT_COLORS.muted,
+    white: DEFAULT_COLORS.white,
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addBackgroundImage(s: any, slide: Slide, images: Map<string, string>) {
+function addBackgroundImage(s: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   s.background = { color: COLORS.bg }
   if (slide.image_prompt && images && images.has(slide.image_prompt)) {
     s.addImage({ path: images.get(slide.image_prompt), x: 0, y: 0, w: '100%', h: '100%' })
@@ -38,7 +81,7 @@ function addBackgroundImage(s: any, slide: Slide, images: Map<string, string>) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addTitleSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addTitleSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
 
@@ -62,9 +105,9 @@ function addTitleSlide(pptx: any, slide: Slide, images: Map<string, string>) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addBulletsSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addBulletsSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
-  addBackgroundImage(s, slide, images)
+  addBackgroundImage(s, slide, images, COLORS)
 
   if (slide.title) {
     s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial' })
@@ -82,7 +125,7 @@ function addBulletsSlide(pptx: any, slide: Slide, images: Map<string, string>) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addImageLeftSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addImageLeftSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
 
@@ -105,7 +148,7 @@ function addImageLeftSlide(pptx: any, slide: Slide, images: Map<string, string>)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addImageRightSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addImageRightSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
   s.background = { color: COLORS.bg }
 
@@ -128,9 +171,9 @@ function addImageRightSlide(pptx: any, slide: Slide, images: Map<string, string>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addTwoColumnSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addTwoColumnSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
-  addBackgroundImage(s, slide, images)
+  addBackgroundImage(s, slide, images, COLORS)
 
   if (slide.title) {
     s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.white, fontFace: 'Arial' })
@@ -148,9 +191,9 @@ function addTwoColumnSlide(pptx: any, slide: Slide, images: Map<string, string>)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addStatsSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addStatsSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
-  addBackgroundImage(s, slide, images)
+  addBackgroundImage(s, slide, images, COLORS)
 
   if (slide.title) {
     s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
@@ -165,9 +208,9 @@ function addStatsSlide(pptx: any, slide: Slide, images: Map<string, string>) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addQuoteSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addQuoteSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
-  addBackgroundImage(s, slide, images)
+  addBackgroundImage(s, slide, images, COLORS)
 
   if (slide.quote) {
     s.addText(`"${slide.quote}"`, { x: 1.5, y: 1.5, w: 7, h: 2.5, fontSize: 20, italic: true, color: COLORS.text, align: 'center', fontFace: 'Arial' })
@@ -178,9 +221,9 @@ function addQuoteSlide(pptx: any, slide: Slide, images: Map<string, string>) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>) {
+function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
   const s = pptx.addSlide()
-  addBackgroundImage(s, slide, images)
+  addBackgroundImage(s, slide, images, COLORS)
 
   if (slide.title) {
     s.addText(slide.title, { x: 0.8, y: 2, w: 8.4, h: 1.2, fontSize: 30, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
@@ -208,19 +251,20 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
   pptx.title = titulo
 
   const slides = (data.slides || []) as Slide[]
+  const COLORS = parseColors(data as PresentationData)
 
   for (const rawSlide of slides) {
     const slide = { ...rawSlide, layout: normalizeLayout(rawSlide.layout) }
     switch (slide.layout) {
-      case 'title': addTitleSlide(pptx, slide, images); break
-      case 'image-left': addImageLeftSlide(pptx, slide, images); break
-      case 'image-right': addImageRightSlide(pptx, slide, images); break
-      case 'bullets': addBulletsSlide(pptx, slide, images); break
-      case 'two-column': addTwoColumnSlide(pptx, slide, images); break
-      case 'stats': addStatsSlide(pptx, slide, images); break
-      case 'quote': addQuoteSlide(pptx, slide, images); break
-      case 'closing': addClosingSlide(pptx, slide, images); break
-      default: addBulletsSlide(pptx, slide, images); break
+      case 'title': addTitleSlide(pptx, slide, images, COLORS); break
+      case 'image-left': addImageLeftSlide(pptx, slide, images, COLORS); break
+      case 'image-right': addImageRightSlide(pptx, slide, images, COLORS); break
+      case 'bullets': addBulletsSlide(pptx, slide, images, COLORS); break
+      case 'two-column': addTwoColumnSlide(pptx, slide, images, COLORS); break
+      case 'stats': addStatsSlide(pptx, slide, images, COLORS); break
+      case 'quote': addQuoteSlide(pptx, slide, images, COLORS); break
+      case 'closing': addClosingSlide(pptx, slide, images, COLORS); break
+      default: addBulletsSlide(pptx, slide, images, COLORS); break
     }
   }
 

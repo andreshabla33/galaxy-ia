@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Sparkles, FileText, Presentation, Code, X } from 'lucide-react'
 import { TEMPLATES, type Template } from '@/shared/config/templates'
 import type { ArtifactType } from '@/shared/config/artifact-prompts'
@@ -10,13 +11,25 @@ interface TemplateSelectorProps {
   onClose: () => void
 }
 
+const TAB_ACTIVE_STYLES: Record<string, string> = {
+  blue: 'bg-blue-500/15 text-blue-300 border border-blue-500/25',
+  purple: 'bg-purple-500/15 text-purple-300 border border-purple-500/25',
+  green: 'bg-green-500/15 text-green-300 border border-green-500/25',
+}
+
 const TYPE_TABS: { type: ArtifactType; label: string; icon: React.ReactNode; color: string }[] = [
   { type: 'documento', label: 'Documentos', icon: <FileText className="w-3.5 h-3.5" />, color: 'blue' },
   { type: 'presentacion', label: 'Presentaciones', icon: <Presentation className="w-3.5 h-3.5" />, color: 'purple' },
   { type: 'codigo', label: 'Código', icon: <Code className="w-3.5 h-3.5" />, color: 'green' },
 ]
 
+// Map guided template IDs to their dedicated routes
+const GUIDED_ROUTES: Record<string, string> = {
+  'doc-visa-expert-letter': '/visa-letter',
+}
+
 export function TemplateSelector({ onSelectTemplate, onClose }: TemplateSelectorProps) {
+  const router = useRouter()
   const [activeType, setActiveType] = useState<ArtifactType>('documento')
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [topic, setTopic] = useState('')
@@ -52,7 +65,7 @@ export function TemplateSelector({ onSelectTemplate, onClose }: TemplateSelector
               onClick={() => { setActiveType(tab.type); setSelectedTemplate(null) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
                 activeType === tab.type
-                  ? `bg-${tab.color}-500/15 text-${tab.color}-300 border border-${tab.color}-500/25`
+                  ? TAB_ACTIVE_STYLES[tab.color] || 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25'
                   : 'bg-white/[0.03] text-white/35 border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/50'
               }`}
             >
@@ -67,7 +80,14 @@ export function TemplateSelector({ onSelectTemplate, onClose }: TemplateSelector
           {filteredTemplates.map(template => (
             <button
               key={template.id}
-              onClick={() => setSelectedTemplate(template)}
+              onClick={() => {
+                if (template.guided && GUIDED_ROUTES[template.id]) {
+                  onClose()
+                  router.push(GUIDED_ROUTES[template.id])
+                  return
+                }
+                setSelectedTemplate(template)
+              }}
               className={`flex items-start gap-2.5 p-3 rounded-xl text-left transition-all ${
                 selectedTemplate?.id === template.id
                   ? 'bg-indigo-500/15 border border-indigo-500/30 ring-1 ring-indigo-500/20'
@@ -75,9 +95,14 @@ export function TemplateSelector({ onSelectTemplate, onClose }: TemplateSelector
               }`}
             >
               <span className="text-lg mt-0.5">{template.icon}</span>
-              <div>
-                <p className={`text-xs font-medium ${selectedTemplate?.id === template.id ? 'text-indigo-300' : 'text-white/70'}`}>
-                  {template.label}
+              <div className="min-w-0">
+                <p className={`text-xs font-medium flex items-center gap-1.5 ${selectedTemplate?.id === template.id ? 'text-indigo-300' : 'text-white/70'}`}>
+                  <span className="truncate">{template.label}</span>
+                  {template.guided && (
+                    <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                      Guiado
+                    </span>
+                  )}
                 </p>
                 <p className="text-[10px] text-white/30 mt-0.5">{template.description}</p>
               </div>

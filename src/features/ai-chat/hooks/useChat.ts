@@ -36,6 +36,8 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
   const abortControllerRef = useRef<AbortController | null>(null)
   const onArtifactRef = useRef(onArtifact)
   onArtifactRef.current = onArtifact
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
 
   // Guard: skip loadHistory for sessions we just created (messages are already in memory)
   const skipNextHistoryLoadRef = useRef(false)
@@ -103,7 +105,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
       content: message.content,
     }
 
-    const updatedMessages = [...messages, userMessage]
+    const updatedMessages = [...messagesRef.current, userMessage]
     setMessages(updatedMessages)
     setIsLoading(true)
 
@@ -281,7 +283,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
     } finally {
       setIsLoading(false)
     }
-  }, [messages, apiKey, provider, systemPrompt, sessionId, onSessionCreated])
+  }, [apiKey, provider, systemPrompt, sessionId, onSessionCreated])
 
   return { messages, input, setInput, handleInputChange, append, isLoading, lastArtifact, setMessages }
 }

@@ -268,9 +268,9 @@ root.render(
                   <div className="h-[30%] border-t border-white/10 bg-[#151515]">
                     <div className="flex items-center justify-between px-3 py-1 border-b border-white/5 bg-[#1a1a1a]">
                       <span className="text-[10px] text-white/40 uppercase tracking-wider">Terminal Output</span>
-                      <button onClick={() => alert('Próximamente: "Auto-reparar". Se inyectará este error en el prompt de la IA.')} className="text-[10px] text-amber-400/80 hover:text-amber-400 flex items-center gap-1 bg-amber-400/10 px-2 py-0.5 rounded">
-                        <Terminal className="w-3 h-3" /> Reparar con IA
-                      </button>
+                      <span className="text-[10px] text-amber-400/50 flex items-center gap-1 bg-amber-400/5 px-2 py-0.5 rounded cursor-default" title="Copia el error y pégalo en el chat de edición para que la IA lo corrija">
+                        <Terminal className="w-3 h-3" /> Copia errores al chat →
+                      </span>
                     </div>
                     <div className="h-full overflow-hidden">
                       <SandpackConsole resetOnPreviewRestart={true} standalone className="sandpack-console-custom" />

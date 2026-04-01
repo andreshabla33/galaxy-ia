@@ -96,20 +96,6 @@ export async function detectIntentHybrid(
 }
 
 /**
- * Timeout wrapper — nunca esperamos más de 3s por Supabase
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<T>(resolve => setTimeout(() => {
-      console.warn(`[prompt-loader] Supabase timeout after ${ms}ms, using fallback`)
-      resolve(fallback)
-    }, ms)),
-  ])
-}
-
-/**
  * Carga el prompt específico para un tipo desde Supabase con cache.
  */
 async function loadPromptFromDB(tipo: string): Promise<string | null> {

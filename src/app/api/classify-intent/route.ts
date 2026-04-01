@@ -1,20 +1,5 @@
 import { NextResponse } from 'next/server'
-
-const CLASSIFY_PROMPT = `Eres un clasificador de intents para una app de generación de contenido con IA.
-Dado el mensaje del usuario, responde SOLO con UNA de estas palabras:
-- presentacion (si pide slides, presentación, pitch deck, keynote, powerpoint)
-- documento (si pide documento, reporte, guía, artículo, ensayo, análisis, tendencias, resumen, informe, investigación)
-- codigo (si pide landing page, web app, componente, dashboard, formulario, interfaz, HTML)
-- imagen (si pide imagen, foto, ilustración, logo, banner, poster, diseño visual)
-- general (si es conversación general, pregunta, o no encaja en los anteriores)
-
-REGLAS:
-- Responde SOLO la palabra, sin explicación
-- Si hay ambigüedad, prioriza el tipo de contenido más probable
-- "crea un documento sobre X" → documento
-- "haz una presentación de X" → presentacion
-- "diseña una landing de X" → codigo
-- "genera una imagen de X" → imagen`
+import { INTENT_DETECTOR_PROMPT as CLASSIFY_PROMPT } from '@/shared/config/artifact-prompts'
 
 export async function POST(req: Request) {
   try {

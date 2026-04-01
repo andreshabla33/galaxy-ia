@@ -8,6 +8,7 @@ export interface Template {
   description: string
   icon: string
   prompt: string
+  guided?: boolean
 }
 
 export const TEMPLATES: Template[] = [
@@ -56,6 +57,16 @@ export const TEMPLATES: Template[] = [
     description: 'Contrato o acuerdo legal',
     icon: '📝',
     prompt: 'Crea un contrato profesional para: ',
+  },
+  {
+    id: 'doc-visa-expert-letter',
+    type: 'documento',
+    subtipo: 'carta-experto',
+    label: 'Prueba Visas Carta de Experto',
+    description: 'Carta de experto para prueba de visas de inmigración',
+    icon: '🏛️',
+    prompt: '__GUIDED_FLOW__visa-letter',
+    guided: true,
   },
   // === PRESENTACIONES ===
   {
