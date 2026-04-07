@@ -45,14 +45,16 @@ FILOSOFÍA DE DISEÑO:
 - Alterna layouts para crear ritmo visual (nunca más de 2 slides seguidos con el mismo layout).
 - Los bullets deben ser frases completas y descriptivas (15-25 palabras cada uno), NO palabras sueltas.
 - El contenido debe ser profundo y específico, NO genérico. Incluye datos, ejemplos y contexto real.
+- Estructura tipo "deck profesional": tras "title" suele ir "agenda" (mapa de la charla); usa 2-3 slides "section" como divisores de actos antes de bloques largos; si hay historia/evolución/proceso, incluye al menos un "timeline".
 
 REGLAS ESTRICTAS:
 1. Genera SIEMPRE una presentación como JSON estructurado.
 2. Mínimo 10 slides, máximo 20. Incluye variedad de layouts.
-3. Layouts disponibles: "title", "bullets", "two-column", "image-left", "image-right", "quote", "stats", "closing".
-4. SIEMPRE incluye "image_prompt" en AL MENOS 6 slides (title + image-left/right + otros).
-5. SIEMPRE incluye "color_scheme" con una paleta coherente y elegante que se adapte al tema.
-6. NO saludes, NO te despidas, ve directo a la presentación.
+3. Layouts disponibles: "title", "agenda", "section", "timeline", "bullets", "two-column", "image-left", "image-right", "quote", "stats", "closing".
+4. OBLIGATORIO incluir: exactamente 1 slide "agenda" (posición 2 o 3), al menos 1 slide "section", y al menos 1 slide "timeline" cuando el tema implique cronología, hitos, fases, historia o roadmap (si no aplica, sustituye "timeline" por un "two-column" de comparación antes/después).
+5. SIEMPRE incluye "image_prompt" en AL MENOS 6 slides (title + image-left/right + otros).
+6. SIEMPRE incluye "color_scheme" con una paleta coherente y elegante que se adapte al tema.
+7. NO saludes, NO te despidas, ve directo a la presentación.
 
 REGLAS DE COLOR — OBLIGATORIO:
 Incluye "color_scheme" con colores que combinen con el tema de la presentación:
@@ -90,6 +92,29 @@ FORMATO DE OUTPUT:
       "title": "Título principal impactante",
       "subtitle": "Subtítulo descriptivo que contextualiza la presentación",
       "image_prompt": "... descriptive prompt 25-40 words ..."
+    },
+    {
+      "layout": "agenda",
+      "title": "Qué verás en esta presentación",
+      "agenda_items": [
+        { "title": "Panorama y problema", "detail": "Contexto con datos concretos" },
+        { "title": "Nuestra solución", "detail": "Cómo lo resolvemos" },
+        { "title": "Resultados y siguientes pasos", "detail": "Métricas y plan de acción" }
+      ]
+    },
+    {
+      "layout": "section",
+      "title": "Acto II — La solución",
+      "subtitle": "De la idea al impacto medible"
+    },
+    {
+      "layout": "timeline",
+      "title": "Hitos que marcan el camino",
+      "timeline": [
+        { "label": "Q1", "title": "Investigación", "detail": "Entrevistas y datos de mercado" },
+        { "label": "Q2", "title": "MVP", "detail": "Primer piloto con usuarios reales" },
+        { "label": "Q3", "title": "Escala", "detail": "Despliegue y optimización" }
+      ]
     },
     {
       "layout": "bullets",
@@ -136,6 +161,9 @@ FORMATO DE OUTPUT:
 REGLAS FINALES:
 - El JSON DEBE ser válido. Escápalo correctamente.
 - NUNCA uses el layout "image-text" — usa "image-left" o "image-right".
+- Para "agenda": usa "agenda_items" (3 a 5 ítems). Cada "title" es un capítulo corto; "detail" resume qué cubre (12-20 palabras).
+- Para "section": "title" es el divisor de acto en pocas palabras; "subtitle" opcional acompaña sin repetir el título.
+- Para "timeline": 3 a 6 entradas; "label" corto (año, trimestre, fase); "title" del hito; "detail" con sustancia (12-20 palabras).
 - Haz que cada slide tenga PROPÓSITO: no relleno, cada una avanza la narrativa.
 - Los stats deben usar números realistas y relevantes al tema.
 - La quote debe ser una cita real o verosímil de una autoridad en el tema.`

@@ -122,6 +122,61 @@ function recoverFromMalformedJSON(type: ArtifactType, text: string): ParsedArtif
      }
   }
 
+  // Si es presentación, intentar extraer slides y color_scheme vía regex
+  if (type === 'presentacion') {
+    // Try to extract slides array
+    const slidesMatch = text.match(/"slides":\s*\[/i)
+    const slidesArray: Record<string, unknown>[] = []
+    
+    if (slidesMatch) {
+      // Extract individual slide objects using pattern matching
+      const slidePattern = /\{\s*"layout":\s*"([^"]+)"[\s\S]*?"title":\s*"([^"]*)"[\s\S]*?"bullets":\s*\[([\s\S]*?)\][\s\S]*?\}/g
+      let sm
+      while ((sm = slidePattern.exec(text)) !== null) {
+        const bullets = sm[3].split(',').map(b => b.trim().replace(/^"|"$/g, ''))
+        slidesArray.push({
+          layout: sm[1],
+          title: sm[2],
+          bullets: bullets.filter(Boolean),
+        })
+      }
+      
+      // Fallback: try simpler regex if the above fails
+      if (slidesArray.length === 0) {
+        const simpleSlidePattern = /\{\s*"layout":\s*"([^"]+)"[\s\S]*?"title":\s*"([^"]+)/g
+        let ss
+        while ((ss = simpleSlidePattern.exec(text)) !== null) {
+          slidesArray.push({
+            layout: ss[1],
+            title: ss[2],
+            bullets: [],
+          })
+        }
+      }
+    }
+
+    // Try to extract color_scheme
+    const colorMatch = text.match(/"color_scheme":\s*(\{[^}]+\})/i)
+    let colorScheme = null
+    if (colorMatch) {
+      try { colorScheme = JSON.parse(colorMatch[1]) } catch { /* ignore */ }
+    }
+
+    return {
+      type,
+      titulo,
+      subtipo: 'premium',
+      contenido: {
+        slides: slidesArray,
+        theme: 'dark',
+        total_slides: slidesArray.length,
+        ...(colorScheme ? { color_scheme: colorScheme } : {}),
+        isRecovered: true,
+      },
+      raw: text
+    }
+  }
+
   return null
 }
 
@@ -187,8 +242,21 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
             finalParsed = { ...finalParsed, ...jsonContent }
             console.log(`[parser] Successfully promoted ${type} JSON from inside tag`)
           }
-          // If parse fails, it's likely still streaming — silently continue
-          // The viewer will show "Generando..." until the JSON is complete
+          // If parse fails, it's likely still streaming — try emergency recovery
+          const recovered = recoverFromMalformedJSON(type, trimmed)
+          if (recovered) {
+            console.log(`[parser] Emergency recovered ${type} from tag content`)
+            return recovered
+          }
+          // Silently continue — viewer will show "Generando..." until JSON is complete
+        }
+      }
+      // For documento artifacts, attempt recovery if content doesn't look like code/markdown
+      else if (type === 'documento') {
+        const recovered = recoverFromMalformedJSON(type, content.trim())
+        if (recovered) {
+          console.log(`[parser] Emergency recovered ${type} from tag content (no JSON detected)`)
+          return recovered
         }
       }
 
