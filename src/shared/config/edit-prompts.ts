@@ -29,6 +29,17 @@ REGLAS:
 4. Devuelve la presentación completa modificada con TODOS los slides.
 5. Si el usuario pide cambios de colores o tema, DEBES incluir "color_scheme" con colores CSS válidos.
 
+LAYOUTS DISPONIBLES (12 tipos):
+- CLÁSICOS: "title", "bullets", "two-column", "quote", "stats", "closing"
+- CON IMAGEN: "image-left", "image-right", "full-image"
+- PREMIUM: "icon-grid" (requiere campo "items" con icon/title/description), "timeline" (requiere campo "items" con title/description), "section-divider" (usa section_number y subtitle)
+
+CAMPOS ESPECIALES:
+- "full-image": usa "highlight_text" para texto grande sobre la imagen, y "image_prompt" para la imagen de fondo
+- "icon-grid": usa "items" array con { "icon": "emoji", "title": "...", "description": "..." }
+- "timeline": usa "items" array con { "title": "...", "description": "..." }
+- "section-divider": usa "section_number" (número) y "subtitle" (texto)
+
 FORMATO DE OUTPUT (idéntico al original):
 \`\`\`artifact:presentacion
 {

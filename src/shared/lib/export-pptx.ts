@@ -1,14 +1,3 @@
-interface AgendaItem {
-  title: string
-  detail?: string
-}
-
-interface TimelineEntry {
-  label: string
-  title: string
-  detail?: string
-}
-
 interface Slide {
   layout: string
   title?: string
@@ -22,8 +11,10 @@ interface Slide {
   contact?: string
   content?: string
   image_prompt?: string
-  agenda_items?: AgendaItem[]
-  timeline?: TimelineEntry[]
+  // Premium fields
+  items?: { icon?: string; title: string; description: string }[]
+  section_number?: number
+  highlight_text?: string
 }
 
 interface PresentationData {
@@ -246,70 +237,113 @@ function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>, C
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addAgendaSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
-  const s = pptx.addSlide()
-  s.background = { color: COLORS.bg }
-  if (slide.title) {
-    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.7, fontSize: 24, bold: true, color: COLORS.title, fontFace: 'Arial' })
-  }
-  const items: AgendaItem[] =
-    slide.agenda_items?.length ? slide.agenda_items : (slide.bullets?.map(b => ({ title: b })) ?? [])
-  let y = 1.35
-  const lineH = 0.42
-  items.forEach((item, i) => {
-    s.addText(String(i + 1).padStart(2, '0'), { x: 0.8, y, w: 0.55, h: lineH, fontSize: 12, bold: true, color: COLORS.title, fontFace: 'Arial' })
-    s.addText(item.title, { x: 1.45, y, w: 7.5, h: lineH + 0.15, fontSize: 15, bold: true, color: COLORS.white, fontFace: 'Arial', valign: 'top' })
-    y += lineH + 0.28
-    if (item.detail) {
-      s.addText(item.detail, { x: 1.45, y, w: 7.5, h: 0.75, fontSize: 11, color: COLORS.muted, fontFace: 'Arial', valign: 'top' })
-      y += 0.72
-    }
-    y += 0.12
-  })
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addSectionSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
-  const s = pptx.addSlide()
-  s.background = { color: COLORS.bg }
-  if (slide.title) {
-    s.addText(slide.title, { x: 0.8, y: 1.7, w: 8.4, h: 1.4, fontSize: 32, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
-  }
-  if (slide.subtitle) {
-    s.addText(slide.subtitle, { x: 1.2, y: 3.2, w: 7.6, h: 0.9, fontSize: 16, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addTimelineSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
-  const s = pptx.addSlide()
-  s.background = { color: COLORS.bg }
-  if (slide.title) {
-    s.addText(slide.title, { x: 0.8, y: 0.45, w: 8.4, h: 0.65, fontSize: 22, bold: true, color: COLORS.title, align: 'center', fontFace: 'Arial' })
-  }
-  const entries = slide.timeline ?? []
-  let y = 1.25
-  entries.forEach((ev) => {
-    s.addText(ev.label, { x: 0.8, y, w: 1.1, h: 0.4, fontSize: 11, bold: true, color: COLORS.title, fontFace: 'Arial' })
-    s.addText(ev.title, { x: 2.0, y, w: 6.8, h: 0.4, fontSize: 14, bold: true, color: COLORS.white, fontFace: 'Arial' })
-    y += 0.42
-    if (ev.detail) {
-      s.addText(ev.detail, { x: 2.0, y, w: 6.8, h: 0.65, fontSize: 11, color: COLORS.muted, fontFace: 'Arial', valign: 'top' })
-      y += 0.62
-    }
-    y += 0.15
-  })
-}
-
 // Normalize legacy/unknown layout names to the closest known layout
 function normalizeLayout(layout: string): string {
-  const KNOWN = ['title', 'agenda', 'section', 'timeline', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing']
+  const KNOWN = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 'full-image', 'icon-grid', 'timeline', 'section-divider']
   if (KNOWN.includes(layout)) return layout
   if (layout === 'image-text') return 'image-right'
   if (layout === 'content' || layout === 'text') return 'bullets'
-  if (layout === 'chapter' || layout === 'divider' || layout === 'act') return 'section'
+  if (layout === 'divider' || layout === 'separator') return 'section-divider'
+  if (layout === 'features' || layout === 'grid') return 'icon-grid'
+  if (layout === 'roadmap' || layout === 'process') return 'timeline'
+  if (layout === 'hero' || layout === 'splash') return 'full-image'
   return layout
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addFullImageSlide(pptx: any, slide: Slide, images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.image_prompt && images && images.has(slide.image_prompt)) {
+    s.addImage({ path: images.get(slide.image_prompt), x: 0, y: 0, w: '100%', h: '100%' })
+    // Dark overlay gradient
+    s.addShape('rect', { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '000000', transparency: 60 } })
+  }
+
+  if (slide.highlight_text) {
+    s.addText(slide.highlight_text, { x: 0.8, y: 2.5, w: 8.4, h: 1.5, fontSize: 40, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
+  } else if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 2.5, w: 8.4, h: 1.5, fontSize: 36, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
+  }
+
+  if (slide.title && slide.highlight_text) {
+    s.addText(slide.title, { x: 1.5, y: 4.0, w: 7, h: 0.6, fontSize: 16, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addIconGridSlide(pptx: any, slide: Slide, _images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.title, fontFace: 'Arial' })
+  }
+
+  const items = slide.items || []
+  const cols = items.length >= 4 ? 4 : 3
+  const colW = 8.4 / cols
+
+  items.forEach((item, i) => {
+    const x = 0.8 + (i % cols) * colW
+    const y = 1.6 + Math.floor(i / cols) * 2.4
+    // Card background
+    s.addShape('rect', { x: x + 0.1, y, w: colW - 0.2, h: 2.0, fill: { color: '111827' }, rectRadius: 0.15 })
+    // Icon
+    s.addText(item.icon || '●', { x: x + 0.1, y: y + 0.2, w: colW - 0.2, h: 0.5, fontSize: 22, align: 'center', fontFace: 'Arial' })
+    // Title
+    s.addText(item.title, { x: x + 0.3, y: y + 0.7, w: colW - 0.6, h: 0.4, fontSize: 12, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
+    // Description
+    s.addText(item.description, { x: x + 0.3, y: y + 1.1, w: colW - 0.6, h: 0.7, fontSize: 10, color: COLORS.muted, align: 'center', fontFace: 'Arial', valign: 'top' })
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addTimelineSlide(pptx: any, slide: Slide, _images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.title, fontFace: 'Arial' })
+  }
+
+  const items = slide.items || []
+  const cols = Math.min(items.length, 5)
+  const colW = 8.4 / cols
+
+  // Horizontal line
+  s.addShape('rect', { x: 0.8, y: 2.0, w: 8.4, h: 0.02, fill: { color: COLORS.title + '40' } })
+
+  items.forEach((item, i) => {
+    const x = 0.8 + i * colW
+    // Dot
+    s.addShape('ellipse', { x: x + colW / 2 - 0.1, y: 1.9, w: 0.2, h: 0.2, fill: { color: COLORS.title } })
+    // Title
+    s.addText(item.title, { x: x + 0.1, y: 2.4, w: colW - 0.2, h: 0.4, fontSize: 11, bold: true, color: COLORS.title, align: 'center', fontFace: 'Arial' })
+    // Description
+    s.addText(item.description, { x: x + 0.1, y: 2.8, w: colW - 0.2, h: 1.2, fontSize: 10, color: COLORS.muted, align: 'center', fontFace: 'Arial', valign: 'top' })
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addSectionDividerSlide(pptx: any, slide: Slide, _images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.section_number) {
+    s.addText(String(slide.section_number).padStart(2, '0'), {
+      x: 0.8, y: 1.0, w: 8.4, h: 1.5, fontSize: 72, bold: true, color: COLORS.title, align: 'center', fontFace: 'Arial',
+      transparency: 85,
+    })
+  }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 1.5, y: 2.2, w: 7, h: 1.0, fontSize: 30, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
+  }
+  if (slide.subtitle) {
+    s.addText(slide.subtitle, { x: 1.5, y: 3.3, w: 7, h: 0.6, fontSize: 16, color: COLORS.muted, align: 'center', fontFace: 'Arial' })
+  }
 }
 
 export async function exportToPptx(data: PresentationData, titulo: string, images: Map<string, string>) {
@@ -327,9 +361,6 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
     const slide = { ...rawSlide, layout: normalizeLayout(rawSlide.layout) }
     switch (slide.layout) {
       case 'title': addTitleSlide(pptx, slide, images, COLORS); break
-      case 'agenda': addAgendaSlide(pptx, slide, images, COLORS); break
-      case 'section': addSectionSlide(pptx, slide, images, COLORS); break
-      case 'timeline': addTimelineSlide(pptx, slide, images, COLORS); break
       case 'image-left': addImageLeftSlide(pptx, slide, images, COLORS); break
       case 'image-right': addImageRightSlide(pptx, slide, images, COLORS); break
       case 'bullets': addBulletsSlide(pptx, slide, images, COLORS); break
@@ -337,6 +368,10 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
       case 'stats': addStatsSlide(pptx, slide, images, COLORS); break
       case 'quote': addQuoteSlide(pptx, slide, images, COLORS); break
       case 'closing': addClosingSlide(pptx, slide, images, COLORS); break
+      case 'full-image': addFullImageSlide(pptx, slide, images, COLORS); break
+      case 'icon-grid': addIconGridSlide(pptx, slide, images, COLORS); break
+      case 'timeline': addTimelineSlide(pptx, slide, images, COLORS); break
+      case 'section-divider': addSectionDividerSlide(pptx, slide, images, COLORS); break
       default: addBulletsSlide(pptx, slide, images, COLORS); break
     }
   }

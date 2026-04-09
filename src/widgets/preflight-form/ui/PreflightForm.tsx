@@ -11,6 +11,9 @@ interface PreflightConfig {
   audience: string
   language: string
   style: string
+  presentationFormat: string
+  imageStyle: string
+  narrative: string
 }
 
 interface PreflightFormProps {
@@ -80,6 +83,7 @@ const STYLE_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: 'corporativo', label: 'Corporativo' },
     { value: 'colorido', label: 'Colorido y vibrante' },
     { value: 'minimalista', label: 'Minimalista' },
+    { value: 'gradientes', label: 'Gradientes modernos' },
   ],
   codigo: [
     { value: 'moderno', label: 'Moderno / Glassmorphism' },
@@ -95,6 +99,27 @@ const STYLE_OPTIONS: Record<string, { value: string; label: string }[]> = {
   ],
   documento: [],
 }
+
+const PRESENTATION_FORMAT_OPTIONS = [
+  { value: 'presenter', label: 'Presenter Slides (visual, pocas palabras)' },
+  { value: 'detailed', label: 'Detailed Deck (más texto, para enviar)' },
+]
+
+const IMAGE_STYLE_OPTIONS = [
+  { value: 'editorial', label: 'Fotografía editorial' },
+  { value: 'flat-illustration', label: 'Ilustración flat' },
+  { value: '3d-isometric', label: '3D isométrico' },
+  { value: 'cinematic', label: 'Cinematográfico' },
+  { value: 'none', label: 'Sin imágenes' },
+]
+
+const NARRATIVE_OPTIONS = [
+  { value: 'problema-solucion', label: 'Problema → Solución' },
+  { value: 'cronologico', label: 'Cronológico / Historia' },
+  { value: 'comparativo', label: 'Comparativo' },
+  { value: 'educativo', label: 'Educativo paso a paso' },
+  { value: 'pitch', label: 'Pitch (Hook → Visión → CTA)' },
+]
 
 function ChipSelect({ options, value, onChange }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
   return (
@@ -150,6 +175,25 @@ function buildEnrichedPrompt(original: string, intent: DetectedIntent, config: P
     extras.push(`Estilo visual: ${config.style}`)
   }
 
+  // Presentation-specific options
+  if (intent === 'presentacion') {
+    if (config.presentationFormat) {
+      const fmtMap: Record<string, string> = { presenter: 'Slides de presentador (visual, pocas palabras, más imágenes)', detailed: 'Deck detallado (más texto explicativo, para enviar sin presentar)' }
+      extras.push(`Formato: ${fmtMap[config.presentationFormat] || config.presentationFormat}`)
+    }
+    if (config.imageStyle && config.imageStyle !== 'none') {
+      const imgMap: Record<string, string> = { editorial: 'fotografía editorial profesional', 'flat-illustration': 'ilustración flat moderna', '3d-isometric': 'renders 3D isométricos', cinematic: 'fotografía cinematográfica dramática' }
+      extras.push(`Estilo de imágenes: ${imgMap[config.imageStyle] || config.imageStyle}`)
+    }
+    if (config.imageStyle === 'none') {
+      extras.push('NO generar imágenes (solo texto y elementos gráficos)')
+    }
+    if (config.narrative) {
+      const narMap: Record<string, string> = { 'problema-solucion': 'Estructura Problema → Solución → Evidencia', cronologico: 'Narrativa cronológica / Historia', comparativo: 'Estructura comparativa (antes vs después, nosotros vs competencia)', educativo: 'Estructura educativa paso a paso', pitch: 'Estructura Pitch: Hook → Visión → Solución → Métricas → CTA' }
+      extras.push(`Marco narrativo: ${narMap[config.narrative] || config.narrative}`)
+    }
+  }
+
   if (extras.length > 0) {
     parts.push('\n\n[Preferencias del usuario: ' + extras.join(' | ') + ']')
   }
@@ -164,6 +208,9 @@ export function PreflightForm({ userMessage, detectedIntent, onConfirm, onSkip, 
     audience: 'general',
     language: 'español',
     style: '',
+    presentationFormat: 'presenter',
+    imageStyle: 'editorial',
+    narrative: 'problema-solucion',
   })
 
   const meta = detectedIntent ? INTENT_META[detectedIntent] : null
@@ -257,6 +304,24 @@ export function PreflightForm({ userMessage, detectedIntent, onConfirm, onSkip, 
             <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-2 block">Idioma</label>
             <ChipSelect options={LANGUAGE_OPTIONS} value={config.language} onChange={v => setConfig(c => ({ ...c, language: v }))} />
           </div>
+
+          {/* Presentation-specific options */}
+          {detectedIntent === 'presentacion' && (
+            <>
+              <div className="border-t border-white/[0.06] pt-3 mt-1">
+                <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-2 block">Formato de presentación</label>
+                <ChipSelect options={PRESENTATION_FORMAT_OPTIONS} value={config.presentationFormat} onChange={v => setConfig(c => ({ ...c, presentationFormat: v }))} />
+              </div>
+              <div>
+                <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-2 block">Estilo de imágenes</label>
+                <ChipSelect options={IMAGE_STYLE_OPTIONS} value={config.imageStyle} onChange={v => setConfig(c => ({ ...c, imageStyle: v }))} />
+              </div>
+              <div>
+                <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-2 block">Marco narrativo</label>
+                <ChipSelect options={NARRATIVE_OPTIONS} value={config.narrative} onChange={v => setConfig(c => ({ ...c, narrative: v }))} />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Actions */}

@@ -13,13 +13,17 @@ const ASPECT_MAP: Record<string, string> = {
   '21:9': '21:9',
 }
 
+// Quality enhancers appended to every prompt for better image generation
+const QUALITY_SUFFIX = ', high quality, professional, sharp focus, detailed, 8K UHD'
+const NEGATIVE_PROMPT = 'text, watermark, logo, border, frame, signature, blurry, low quality, distorted, ugly, duplicate, morbid, mutilated'
+
 export async function POST(req: Request) {
   try {
-    const { prompt, aspectRatio = '16:9', quality = 'pro' } = await req.json()
+    const { prompt, aspectRatio = '16:9', quality = 'pro', falApiKey } = await req.json()
 
-    const falKey = process.env.FAL_KEY
+    const falKey = process.env.FAL_KEY || falApiKey
     if (!falKey) {
-      return Response.json({ success: false, error: 'FAL_KEY no configurada en el servidor.' })
+      return Response.json({ success: false, error: 'FAL API Key no configurada. Por favor, añádela en la configuración del Motor AI o en el servidor.' })
     }
     if (!prompt) {
       return Response.json({ success: false, error: 'Prompt requerido.' })
@@ -30,9 +34,17 @@ export async function POST(req: Request) {
     // Route to Pro or Nano Banana 2 based on quality param
     // Pro: better composition/quality (10-20s). Fast: cheaper/faster (4-8s)
     const model = quality === 'fast' ? 'fal-ai/nano-banana-2' : 'fal-ai/nano-banana-pro'
-    const resolution = '1K' // 1K is plenty for web display, 4K only when explicitly needed
+    // 2K for Pro quality (presentations), 1K for fast/drafts
+    const resolution = quality === 'fast' ? '1K' : '2K'
+
+    // Enhance prompt with quality suffix (avoid duplicating if it already contains quality keywords)
+    const hasQualityKeywords = /professional|sharp focus|8K|UHD|detailed/i.test(prompt)
+    const enhancedPrompt = hasQualityKeywords ? prompt : `${prompt}${QUALITY_SUFFIX}`
 
     console.log(`[IMAGE] Model: ${model} | Aspect: ${falAspect} | Res: ${resolution}`)
+
+    // Random seed for variety in batch image generation
+    const seed = Math.floor(Math.random() * 2147483647)
 
     const response = await fetch(`https://fal.run/${model}`, {
       method: 'POST',
@@ -41,12 +53,14 @@ export async function POST(req: Request) {
         Authorization: `Key ${falKey}`,
       },
       body: JSON.stringify({
-        prompt,
+        prompt: enhancedPrompt,
+        negative_prompt: NEGATIVE_PROMPT,
         num_images: 1,
         aspect_ratio: falAspect,
         output_format: 'jpeg',
         resolution,
         safety_tolerance: '4',
+        seed,
       }),
     })
 
@@ -82,3 +96,4 @@ export async function POST(req: Request) {
     return Response.json({ success: false, error: msg })
   }
 }
+
