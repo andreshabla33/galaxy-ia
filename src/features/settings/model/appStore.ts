@@ -7,6 +7,8 @@ interface AppState {
   provider: AIModelProvider
   setApiKey: (key: string) => void
   setProvider: (provider: AIModelProvider) => void
+  falApiKey: string
+  setFalApiKey: (key: string) => void
   isListening: boolean
   setIsListening: (isListening: boolean) => void
   settingsOpen: boolean
@@ -21,6 +23,8 @@ export const useAppStore = create<AppState>()(
       provider: 'gemini',
       setApiKey: (key) => set({ apiKey: key }),
       setProvider: (provider) => set({ provider }),
+      falApiKey: '',
+      setFalApiKey: (key) => set({ falApiKey: key }),
       isListening: false,
       setIsListening: (isListening) => set({ isListening }),
       settingsOpen: false,
@@ -29,7 +33,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'galaxy-ai-storage',
-      partialize: (state) => ({ apiKey: state.apiKey, provider: state.provider }),
+      partialize: (state) => ({ apiKey: state.apiKey, provider: state.provider, falApiKey: state.falApiKey }),
     }
   )
 )

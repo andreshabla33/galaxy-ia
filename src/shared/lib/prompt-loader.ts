@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { ARTIFACT_PROMPTS } from '@/shared/config/artifact-prompts'
 
 export type IntentType = 'documento' | 'presentacion' | 'codigo' | 'imagen' | null
 export type IntentTypeStrict = 'documento' | 'presentacion' | 'codigo' | 'imagen' | 'general'
@@ -96,49 +97,31 @@ export async function detectIntentHybrid(
 }
 
 /**
- * Carga el prompt específico para un tipo desde Supabase con cache.
+ * Carga el prompt especifico para un tipo desde los prompts locales premium.
  */
 async function loadPromptFromDB(tipo: string): Promise<string | null> {
+  // Los prompts locales de artifact-prompts.ts son más avanzados que los de la BD actual.
+  if (tipo !== 'base' && ARTIFACT_PROMPTS[tipo as keyof typeof ARTIFACT_PROMPTS]) {
+    console.log(`[prompt-loader] Using local premium prompt for: ${tipo}`)
+    return ARTIFACT_PROMPTS[tipo as keyof typeof ARTIFACT_PROMPTS]
+  }
+
+  // Fallback to Supabase for base or other types
   const cached = promptCache.get(tipo)
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    console.log(`[prompt-loader] Cache hit for: ${tipo}`)
     return cached.prompt
   }
 
-  console.log(`[prompt-loader] Loading from Supabase: ${tipo}`)
-
-  let data: { system_prompt: string } | null = null
-  let error: unknown = null
-
   try {
-    const queryPromise = supabase
-      .from('prompt_templates')
-      .select('system_prompt')
-      .eq('tipo', tipo)
-      .eq('activo', true)
-      .single()
-
-    // Race against timeout — eslint-disable for any cast needed for Postgrest types
-    const res = await Promise.race([
-      queryPromise.then(r => r),
-      new Promise<{ data: null; error: { message: string } }>(resolve =>
-        setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 3000)
-      ),
-    ])
-    data = (res as { data: { system_prompt: string } | null }).data
-    error = (res as { error: unknown }).error
+    const res = await supabase.from('prompt_templates').select('system_prompt').eq('tipo', tipo).eq('activo', true).single()
+    if (res.data) {
+      promptCache.set(tipo, { prompt: res.data.system_prompt, ts: Date.now() })
+      return res.data.system_prompt
+    }
   } catch (e) {
-    error = e
+    console.warn(`[prompt-loader] DB error for ${tipo}`, e)
   }
-
-  if (error || !data) {
-    console.warn(`[prompt-loader] Failed for tipo: ${tipo}`, error)
-    return FALLBACK_PROMPTS[tipo] || null
-  }
-
-  console.log(`[prompt-loader] Loaded ${tipo}: ${data.system_prompt.length} chars`)
-  promptCache.set(tipo, { prompt: data.system_prompt, ts: Date.now() })
-  return data.system_prompt
+  return null
 }
 
 /**
@@ -186,10 +169,10 @@ export async function buildDynamicPrompt(
   if (!intent) return base
 
   const typePrompt = await loadPromptFromDB(intent)
-  const type = typePrompt || FALLBACK_PROMPTS[intent] || ''
+  const type = typePrompt || ARTIFACT_PROMPTS[intent as keyof typeof ARTIFACT_PROMPTS] || ''
 
   const combined = type ? `${base}\n\n${type}` : base
-  console.log(`[prompt-loader] Prompt ready: ${combined.length} chars (source: ${typePrompt ? 'supabase' : 'fallback'})`)
+  console.log(`[prompt-loader] Prompt ready: ${combined.length} chars`)
   return combined
 }
 
@@ -214,25 +197,8 @@ export function invalidatePromptCache() {
   promptCache.clear()
 }
 
-// Fallback mínimo por si Supabase no responde
+// Fallback mínimo
 const FALLBACK_BASE = `Eres el cerebro detrás de "Galaxy AI Canvas".
 Genera contenido profesional de manera directa.
 NO saludes. El JSON debe ser válido.
 Si es una pregunta general, responde en Markdown limpio sin bloque artifact.`
-
-// Fallback prompts hardcoded por tipo — se usan SOLO si Supabase no responde
-const FALLBACK_PROMPTS: Record<string, string> = {
-  documento: 'TAREA: Generar un DOCUMENTO.\nGenera un bloque ```artifact:documento con JSON: { "titulo", "subtipo", "contenido" (markdown completo) }',
-  presentacion: `TAREA: Generar una PRESENTACIÓN profesional con slides.
-Genera un bloque \`\`\`artifact:presentacion con JSON válido:
-{ "titulo": "string", "subtipo": "string", "theme": "string", "slides": [{ "layout", "title", ... }] }
-LAYOUTS: "title", "bullets", "two-column", "stats", "quote", "image-left", "image-right", "closing". Mínimo 8 slides.
-IMÁGENES — OBLIGATORIO:
-- SIEMPRE incluye "image_prompt" en al menos 5 slides.
-- image_prompt DEBE ser EN INGLÉS, descriptivo (20+ palabras) con estilo, iluminación, composición y calidad (4K, cinematic).
-- Ejemplo: "Futuristic blockchain network with glowing interconnected nodes floating in dark space, neon blue and purple lighting, 4K digital art, cinematic composition"
-- Para slides con imagen usa layout "image-left" o "image-right": { "layout": "image-left"|"image-right", "title", "content", "image_prompt" }
-- El slide "title" también DEBE tener image_prompt.`,
-  codigo: 'TAREA: Generar CÓDIGO.\nGenera un bloque ```artifact:codigo con JSON: { "titulo", "subtipo", "framework", "html" (HTML+Tailwind autocontenido) }\nIncluir CDN de Tailwind.',
-  imagen: 'TAREA: Generar una IMAGEN.\nGenera un bloque ```artifact:imagen con JSON: { "titulo", "subtipo", "prompt" (EN INGLÉS, descriptivo, 4K), "aspectRatio" (16:9|1:1|4:3) }',
-}

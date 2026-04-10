@@ -62,16 +62,14 @@ Toda presentación DEBE seguir este flujo (adapta los slides a cada sección):
 5. EVIDENCIA (2-3 slides): Datos, métricas, testimonios, casos de éxito
 6. CIERRE + CTA (1-2 slides): Resumen, próximos pasos, contacto
 
-═══ REGLAS ESTRICTAS ═══
-1. Genera SIEMPRE una presentación como JSON estructurado.
-2. Mínimo 10 slides, máximo 18. Incluye alta variedad de layouts.
-3. Layouts disponibles (12 tipos):
+6. SIEMPRE genera como JSON estructurado. Mínimo 12 slides, máximo 18. Incluye alta variedad de layouts.
+7. Layouts disponibles (15 tipos):
    - CLÁSICOS: "title", "bullets", "two-column", "quote", "stats", "closing"
    - CON IMAGEN: "image-left", "image-right", "full-image"
-   - PREMIUM: "icon-grid", "timeline", "section-divider"
-4. SIEMPRE incluye "image_prompt" en AL MENOS 7 slides (title + image-left/right + full-image + otros).
-5. SIEMPRE incluye "color_scheme" con una paleta elegante adaptada al tema.
-6. SIEMPRE usa AL MENOS 3 de los layouts premium: "full-image", "icon-grid", "timeline", "section-divider".
+   - PREMIUM: "icon-grid", "timeline", "section-divider", "bento-grid", "comparison", "chart"
+8. SIEMPRE incluye "image_prompt" en AL MENOS 7 slides (title + image-left/right + full-image + otros).
+9. SIEMPRE incluye "color_scheme" con una paleta elegante adaptada al tema.
+10. SIEMPRE usa AL MENOS 4 de los layouts premium.
 7. NO saludes, NO te despidas. Ve directo a la presentación.
 
 ═══ REGLAS DE COLOR — OBLIGATORIO ═══
@@ -135,6 +133,39 @@ Ejemplo MALO: "Team working together" (demasiado genérico, sin estilo, sin deta
   "section_number": 2,
   "title": "El Problema",
   "subtitle": "¿Por qué las soluciones actuales no funcionan?"
+}
+
+"bento-grid": Cuadrícula asimétrica moderna (Apple/Stripe style) para 4-5 features o beneficios clave.
+{
+  "layout": "bento-grid",
+  "title": "Ecosistema Integral",
+  "items": [
+    { "icon": "🌐", "title": "Alcance Global", "description": "Servidores en más de 20 países." },
+    { "icon": "⚡", "title": "Baja Latencia", "description": "Menos de 50ms de respuesta." },
+    { "icon": "🔒", "title": "Zero Trust", "description": "Seguridad militar nativa." },
+    { "icon": "📈", "title": "Escalabilidad", "description": "Auto-scaling infinito." },
+    { "icon": "💸", "title": "Costos Claros", "description": "Paga solo por lo que usas." }
+  ]
+}
+
+"comparison": Cuadro comparativo "Nosotros vs Ellos" o "Antes vs Después".
+{
+  "layout": "comparison",
+  "title": "Nuestra Ventaja Injusta",
+  "left": { "heading": "Modelos Tradicionales", "content": "Lentos, costosos y desconectados.", "items": ["Semanas de espera", "Auditoría manual", "Silos de datos"] },
+  "right": { "heading": "Nuestra Solución IA", "content": "Rápido, asequible e integrado.", "items": ["Resultados en segundos", "100% automatizado", "Única fuente de verdad"] }
+}
+
+"chart": Gráfico de progreso para mostrar KPIs, hitos o porcentajes de forma interactiva e impactante.
+{
+  "layout": "chart",
+  "title": "Crecimiento Exponencial QoQ",
+  "stats": [
+    { "value": "85%", "label": "Retención" },
+    { "value": "120%", "label": "Crecimiento Revenue" },
+    { "value": "45%", "label": "Reducción de Costos" },
+    { "value": "99.9%", "label": "Uptime" }
+  ]
 }
 
 ═══ FORMATO DE OUTPUT ═══
@@ -237,7 +268,9 @@ Ejemplo MALO: "Team working together" (demasiado genérico, sin estilo, sin deta
 - La quote debe ser una cita real de una autoridad reconocida en el tema (incluye nombre real y cargo).
 - Los items de icon-grid SIEMPRE llevan 3-4 elementos con emoji, título y descripción.
 - Los items de timeline SIEMPRE llevan 3-5 hitos con título y descripción.
-- Mínimo 1 slide "section-divider", mínimo 1 "full-image", mínimo 1 "icon-grid".`
+- Los items de bento-grid SIEMPRE llevan 4-5 elementos para construir una cuadrícula bonita.
+- La plantilla comparison SIEMPRE debe tener "left" y "right" conteniendo "heading", "content" y opcionalmente "items".
+- Mínimo 1 "section-divider", mínimo 1 "full-image", mínimo 1 "bento-grid", mínimo 1 "chart".`
 
 // ============================================================
 // PROMPT ESPECIALIZADO: CÓDIGO FRONTEND

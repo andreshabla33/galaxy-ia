@@ -61,7 +61,16 @@ const imageCache = new Map<string, string>()
 // Simple component to render a cached image (no fetching — images are pre-loaded)
 function SlideImage({ prompt, className = '' }: { prompt: string; className?: string }) {
   const url = imageCache.get(prompt)
-  if (!url) return null
+  if (!url) {
+    return (
+      <div className={`overflow-hidden rounded-lg border border-white/[0.08] bg-zinc-900/50 flex flex-col items-center justify-center p-4 text-center ${className}`}>
+        <svg className="w-8 h-8 text-white/20 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span className="text-[10px] text-white/30 truncate w-full">Falta imagen (Revisa tu API Key de FAL)</span>
+      </div>
+    )
+  }
   return (
     <div className={`overflow-hidden rounded-lg border border-white/[0.08] ${className}`}>
       <img src={url} alt="" className="w-full h-full object-cover" />
@@ -249,7 +258,10 @@ interface PresentationViewerProps {
   titulo: string
 }
 
-const KNOWN_LAYOUTS = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 'full-image', 'icon-grid', 'timeline', 'section-divider']
+const KNOWN_LAYOUTS = [
+  'title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 
+  'full-image', 'icon-grid', 'timeline', 'section-divider', 'bento-grid', 'comparison', 'chart'
+]
 
 // Normalize legacy/unknown layout names to the closest known layout
 function normalizeLayout(layout: string): string {
@@ -258,6 +270,7 @@ function normalizeLayout(layout: string): string {
   if (layout === 'content' || layout === 'text') return 'bullets'
   if (layout === 'divider' || layout === 'separator') return 'section-divider'
   if (layout === 'features' || layout === 'grid') return 'icon-grid'
+  if (layout === 'bento') return 'bento-grid'
   if (layout === 'roadmap' || layout === 'process') return 'timeline'
   if (layout === 'hero' || layout === 'splash') return 'full-image'
   return layout
@@ -289,12 +302,13 @@ function SlideNumber({ index, total, muted }: { index: number; total: number; mu
   )
 }
 
-function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function GlassCard({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   return (
-    <div className={`relative rounded-xl border border-white/[0.08] backdrop-blur-sm overflow-hidden ${className}`}
-      style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)' }}>
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      {children}
+    <div className={`relative rounded-2xl border border-white/[0.12] backdrop-blur-md overflow-hidden animate-scale-in shadow-xl shadow-black/30 ${className}`}
+      style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)', animationDelay: `${delay}ms`, opacity: 0 }}>
+      {/* Top highlight for glass effect */}
+      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="relative z-10">{children}</div>
     </div>
   )
 }
@@ -304,15 +318,17 @@ function BulletItem({ text, color, index }: { text: string; color: string; index
   const separatorIdx = text.search(/[:\-–—.]/);
   const hasSeparator = separatorIdx > 0 && separatorIdx < text.length * 0.6;
   return (
-    <li className="flex items-start gap-3 group" style={{ animationDelay: `${index * 60}ms` }}>
-      <span className="relative mt-[7px] shrink-0">
-        <span className="block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-        <span className="absolute inset-0 w-2 h-2 rounded-full opacity-40 blur-[3px]" style={{ backgroundColor: color }} />
+    <li className="flex items-start gap-4 group animate-fade-in-up opacity-0" style={{ animationDelay: `${index * 80 + 100}ms` }}>
+      <span className="relative mt-[8px] shrink-0">
+        <span className="block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+        <span className="absolute inset-0 w-2.5 h-2.5 rounded-full opacity-60 blur-[4px]" style={{ backgroundColor: color }} />
       </span>
-      <span className="text-sm leading-relaxed">
+      <span className="text-base md:text-[17px] leading-relaxed">
         {hasSeparator ? (
-          <><span className="font-semibold text-white/90">{text.slice(0, separatorIdx + 1)}</span>{text.slice(separatorIdx + 1)}</>
-        ) : text}
+          <><span className="font-semibold text-white/95">{text.slice(0, separatorIdx + 1)}</span><span className="opacity-85">{text.slice(separatorIdx + 1)}</span></>
+        ) : (
+          <span className="opacity-90">{text}</span>
+        )}
       </span>
     </li>
   )
@@ -335,8 +351,12 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
   }
 
   return (
-    <div className="w-full aspect-video rounded-2xl border border-white/[0.08] flex flex-col relative overflow-hidden shadow-2xl shadow-black/40" style={slideStyle}>
+    <div className="w-full aspect-video rounded-3xl border border-white/[0.12] flex flex-col relative overflow-hidden shadow-2xl shadow-black/50" style={slideStyle}>
       <DecoOrbs primary={colors.primary} secondary={colors.secondary} />
+      
+      {/* Premium subtle dot grid pattern in background */}
+      <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+
       <SlideNumber index={index} total={total} muted={colors.muted} />
 
       {/* Background image overlay for content-heavy layouts */}
@@ -354,22 +374,22 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
 
         {/* ════ TITLE SLIDE ════ */}
         {slide.layout === 'title' && (
-          <div className={`flex items-center ${hasImage ? 'gap-8' : ''} h-full`}>
-            <div className={`flex flex-col justify-center ${hasImage ? 'flex-1' : 'w-full items-center text-center'}`}>
-              <div className="w-12 h-1 rounded-full mb-6 opacity-80" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
-              <h1 className="text-2xl md:text-4xl font-bold leading-tight tracking-tight mb-4" style={{ color: colors.primary }}>
+          <div className={`flex items-center ${hasImage ? 'gap-10' : ''} h-full`}>
+            <div className={`flex flex-col justify-center animate-fade-in-up opacity-0 ${hasImage ? 'flex-1' : 'w-full items-center text-center'}`} style={{ animationDelay: '100ms' }}>
+              <div className="w-16 h-1.5 rounded-full mb-8 opacity-90 shadow-lg shadow-black/20" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+              <h1 className="text-3xl md:text-3xl lg:text-5xl font-bold leading-tight tracking-tight mb-5 text-balance" style={{ color: colors.primary }}>
                 {slide.title}
               </h1>
               {slide.subtitle && (
-                <p className="text-sm md:text-lg leading-relaxed max-w-xl" style={{ color: colors.muted }}>
+                <p className="text-base md:text-lg leading-relaxed max-w-2xl text-balance" style={{ color: colors.muted }}>
                   {slide.subtitle}
                 </p>
               )}
             </div>
             {hasImage && (
-              <div className="w-[44%] shrink-0 relative">
-                <div className="absolute -inset-3 rounded-2xl opacity-20 blur-xl" style={{ background: colors.primary }} />
-                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-2xl shadow-xl shadow-black/30" />
+              <div className="w-[45%] shrink-0 relative animate-scale-in opacity-0" style={{ animationDelay: '200ms' }}>
+                <div className="absolute -inset-4 rounded-[2rem] opacity-25 blur-2xl" style={{ background: colors.primary }} />
+                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-[1.5rem] shadow-2xl shadow-black/40 ring-1 ring-white/10" />
               </div>
             )}
           </div>
@@ -419,9 +439,9 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
 
         {/* ════ BULLETS ════ */}
         {slide.layout === 'bullets' && (
-          <div className="max-w-2xl">
-            <h2 className="text-xl md:text-2xl font-bold mb-6 tracking-tight" style={{ color: colors.primary }}>{slide.title}</h2>
-            <ul className="space-y-3" style={{ color: colors.text }}>
+          <div className="max-w-3xl">
+            <h2 className="text-2xl md:text-3xl font-bold mb-6 tracking-tight animate-fade-in-up opacity-0" style={{ color: colors.primary }}>{slide.title}</h2>
+            <ul className="space-y-4" style={{ color: colors.text }}>
               {slide.bullets?.map((bullet, i) => <BulletItem key={i} text={bullet} color={colors.secondary} index={i} />)}
             </ul>
           </div>
@@ -503,29 +523,29 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
 
         {/* ════ FULL-IMAGE (NEW) ════ */}
         {slide.layout === 'full-image' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 z-[2]">
+          <div className="absolute inset-0 flex flex-col items-center justify-end pb-16 md:pb-24 z-[2]">
             {/* Full-bleed background image */}
             {hasImage && (
-              <div className="absolute inset-0 z-0">
+              <div className="absolute inset-0 z-0 animate-scale-in opacity-0" style={{ animationDuration: '1.2s' }}>
                 <SlideImage prompt={slide.image_prompt!} className="w-full h-full !rounded-none !border-0" />
                 <div className="absolute inset-0" style={{
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 35%, rgba(0,0,0,0.15) 100%)'
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.15) 100%)'
                 }} />
               </div>
             )}
             {/* Highlight text — large and dramatic */}
             {slide.highlight_text && (
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-center px-8 mb-3 leading-tight relative z-10" style={{ color: '#ffffff' }}>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-center px-10 mb-4 leading-tight relative z-10 animate-fade-in-up opacity-0 drop-shadow-2xl text-balance" style={{ color: '#ffffff', animationDelay: '300ms' }}>
                 {slide.highlight_text}
               </h1>
             )}
             {slide.title && !slide.highlight_text && (
-              <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-center px-8 mb-3 relative z-10" style={{ color: '#ffffff' }}>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-center px-10 mb-4 relative z-10 animate-fade-in-up opacity-0 drop-shadow-xl text-balance" style={{ color: '#ffffff', animationDelay: '300ms' }}>
                 {slide.title}
               </h1>
             )}
             {slide.title && slide.highlight_text && (
-              <p className="text-sm md:text-base text-center px-8 relative z-10" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              <p className="text-lg md:text-xl text-center px-10 relative z-10 animate-fade-in-up opacity-0 max-w-3xl text-balance" style={{ color: 'rgba(255,255,255,0.7)', animationDelay: '500ms' }}>
                 {slide.title}
               </p>
             )}
@@ -577,17 +597,106 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
 
         {/* ════ SECTION-DIVIDER (NEW) ════ */}
         {slide.layout === 'section-divider' && (
-          <div className="flex flex-col items-center justify-center text-center h-full">
+          <div className="flex flex-col items-center justify-center text-center h-full relative">
             {slide.section_number && (
-              <div className="text-6xl md:text-8xl font-extrabold mb-4 opacity-10" style={{ color: colors.primary }}>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] md:text-[16rem] font-bold opacity-[0.03] pointer-events-none select-none z-0" style={{ color: colors.primary }}>
                 {String(slide.section_number).padStart(2, '0')}
               </div>
             )}
-            <div className="w-12 h-1 rounded-full mb-6" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
-            <h1 className="text-2xl md:text-4xl font-bold tracking-tight mb-3" style={{ color: colors.text }}>{slide.title}</h1>
+            <div className="w-20 h-1.5 rounded-full mb-8 relative z-10 animate-scale-in opacity-0" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-5 relative z-10 animate-fade-in-up opacity-0 drop-shadow-lg text-balance" style={{ color: colors.text, animationDelay: '100ms' }}>{slide.title}</h1>
             {slide.subtitle && (
-              <p className="text-sm md:text-base max-w-xl" style={{ color: colors.muted }}>{slide.subtitle}</p>
+              <p className="text-base md:text-lg max-w-2xl relative z-10 animate-fade-in-up opacity-0 text-balance" style={{ color: colors.muted, animationDelay: '300ms' }}>{slide.subtitle}</p>
             )}
+          </div>
+        )}
+
+        {/* ════ BENTO-GRID (NEW) ════ */}
+        {slide.layout === 'bento-grid' && (
+          <div className="h-full flex flex-col pt-2 md:pt-4">
+            {slide.title && <h2 className="text-2xl md:text-4xl font-bold mb-6 tracking-tight animate-fade-in-up opacity-0" style={{ color: colors.primary }}>{slide.title}</h2>}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 flex-1 h-full pb-4">
+              {slide.items?.map((item, i) => {
+                const total = slide.items?.length || 0;
+                // Asymmetrical grid logic: First item is large, 4th item is wide if there are 4 items, etc.
+                const isFirst = i === 0;
+                const isWide = (total === 4 && i === 3) || (total === 5 && i === 3) || (total === 5 && i === 4);
+                
+                return (
+                  <GlassCard key={i} delay={i * 100} className={`p-5 flex flex-col justify-start hover:-translate-y-1 transition-transform ${isFirst ? 'md:col-span-2 md:row-span-2' : ''} ${isWide ? 'md:col-span-2' : ''}`}>
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl md:text-2xl mb-4 bg-white/[0.05] border border-white/10 shrink-0`} style={{ color: colors.primary }}>
+                      {item.icon || '✨'}
+                    </div>
+                    <h3 className={`font-bold text-white/95 mb-2 ${isFirst ? 'text-xl md:text-2xl' : 'text-base md:text-lg'}`}>{item.title}</h3>
+                    <p className={`text-white/60 leading-relaxed text-balance ${isFirst ? 'text-sm md:text-base' : 'text-xs md:text-sm'}`}>{item.description}</p>
+                  </GlassCard>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ════ COMPARISON (NEW) ════ */}
+        {slide.layout === 'comparison' && (
+          <div className="flex flex-col h-full pt-4">
+            {slide.title && <h2 className="text-2xl md:text-4xl font-bold mb-8 tracking-tight text-center animate-fade-in-up opacity-0" style={{ color: colors.primary }}>{slide.title}</h2>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 flex-1 items-center pb-8">
+              {slide.left && (
+                <GlassCard delay={100} className="p-6 md:p-8 flex flex-col border border-white/[0.05] !bg-zinc-900/40 opacity-80 scale-95 origin-right">
+                  <h3 className="text-xl md:text-2xl font-bold text-white/60 mb-4">{slide.left.heading}</h3>
+                  <p className="text-white/40 mb-6 leading-relaxed flex-1">{slide.left.content}</p>
+                  {slide.left.items && (
+                    <ul className="space-y-3">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {slide.left.items.map((it: any, i: number) => (
+                        <li key={i} className="flex items-start gap-3 text-sm text-white/40"><span className="text-red-400/60 mt-0.5">✕</span> <span className="flex-1">{it}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </GlassCard>
+              )}
+              {slide.right && (
+                <GlassCard delay={200} className="p-6 md:p-8 flex flex-col shadow-2xl shadow-indigo-500/10 border border-indigo-500/20 md:scale-105 origin-left z-10" style={{ background: `linear-gradient(135deg, ${colors.primary}15 0%, transparent 100%)` }}>
+                  <div className="absolute -top-10 -right-10 w-32 h-32 blur-3xl opacity-20" style={{ background: colors.primary }} />
+                  <h3 className="text-xl md:text-3xl font-bold mb-4" style={{ color: colors.primary }}>{slide.right.heading}</h3>
+                  <p className="text-white/90 mb-6 leading-relaxed flex-1 text-lg">{slide.right.content}</p>
+                  {slide.right.items && (
+                    <ul className="space-y-3">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {slide.right.items.map((it: any, i: number) => (
+                        <li key={i} className="flex items-start gap-3 text-base text-white/80"><span style={{ color: colors.secondary }} className="mt-0.5">✓</span> <span className="flex-1">{it}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </GlassCard>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════ CHART (NEW) ════ */}
+        {slide.layout === 'chart' && (
+          <div className="flex flex-col h-full pt-4 w-full md:w-5/6 mx-auto">
+            {slide.title && <h2 className="text-2xl md:text-4xl font-bold mb-10 tracking-tight animate-fade-in-up opacity-0 text-center" style={{ color: colors.primary }}>{slide.title}</h2>}
+            <div className="flex flex-col gap-8 justify-center flex-1 pb-10">
+              {slide.stats?.map((stat, i) => {
+                // Parse percentage from value. If it's pure number, use it. Max 100%.
+                const numMatch = stat.value.match(/(\d+(?:\.\d+)?)/);
+                const percent = numMatch ? Math.min(100, Math.max(5, parseFloat(numMatch[1]))) : 50;
+                return (
+                  <div key={i} className="animate-fade-in-up opacity-0" style={{ animationDelay: `${i * 150 + 100}ms` }}>
+                    <div className="flex justify-between mb-3 items-end">
+                      <span className="text-white/80 font-medium text-sm md:text-lg">{stat.label}</span>
+                      <span className="font-bold text-2xl md:text-3xl leading-none" style={{ color: colors.primary }}>{stat.value}</span>
+                    </div>
+                    <div className="h-3 md:h-4 w-full bg-white/[0.05] rounded-full overflow-hidden shadow-inner">
+                      <div className="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,255,255,0.3)]" style={{ width: '0%', animation: `growWidth 1.5s ease-out forwards ${i * 150 + 300}ms`, background: `linear-gradient(90deg, ${colors.secondary}, ${colors.primary})` }} />
+                      <style>{`@keyframes growWidth { to { width: ${percent}%; } }`}</style>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -625,6 +734,7 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
   useEffect(() => {
     console.log('[PresentationViewer] Mount with titulo:', titulo)
     console.log('[PresentationViewer] Is slides array?', Array.isArray(contenido.slides))
+    console.log('[PresentationViewer] Slides content:', JSON.stringify(contenido.slides, null, 2))
   }, [titulo, contenido])
 
   const slides = useMemo(
@@ -739,8 +849,8 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
       </div>
 
       {/* ── Slide Display ── */}
-      <div className="flex-1 overflow-y-auto flex items-center justify-center p-3 md:p-5">
-        <div className="w-full max-w-4xl">
+      <div className="flex-1 overflow-y-auto flex items-center justify-center p-4 md:p-8 custom-scrollbar relative">
+        <div className="w-full max-w-5xl transition-all duration-300">
           <SlideRenderer
             slide={slides[currentSlide]}
             index={currentSlide}
@@ -764,23 +874,30 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
           </button>
 
           {/* Slide dots / mini-thumbnails */}
-          <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto max-w-[55vw] md:max-w-[65vw] px-2 scrollbar-none">
+          <div className="flex items-center gap-2 md:gap-3 overflow-x-auto max-w-[65vw] px-2 py-1 scrollbar-none custom-scrollbar">
             {slides.map((s, i) => (
               <button
                 key={i}
                 onClick={() => goToSlide(i)}
-                className={`shrink-0 transition-all duration-300 rounded-md border ${
+                className={`shrink-0 transition-all duration-300 rounded-lg overflow-hidden relative group border-2 ${
                   i === currentSlide
-                    ? 'w-10 h-7 md:w-14 md:h-9 border-white/20 shadow-lg'
-                    : 'w-6 h-4 md:w-8 md:h-5 border-white/[0.06] opacity-50 hover:opacity-80'
-                } overflow-hidden relative`}
+                    ? 'w-16 h-10 md:w-20 md:h-12 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)]'
+                    : 'w-10 h-6 md:w-14 md:h-8 border-white/10 opacity-60 hover:opacity-100 hover:border-white/30'
+                }`}
                 style={{ background: colors.background }}
                 title={s.title || `Slide ${i + 1}`}
               >
+                {/* Visual hint of layout inside thumbnail */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-1 opacity-40 group-hover:opacity-80 transition-opacity">
+                  <div className="w-1/2 h-0.5 rounded-full bg-current mb-0.5" style={{ color: colors.primary }} />
+                  <div className="w-3/4 h-0.5 rounded-full bg-current mb-0.5" style={{ color: colors.muted }} />
+                  {s.image_prompt && <div className="absolute right-1 bottom-1 w-2 h-2 rounded bg-indigo-400/40" />}
+                </div>
+                
                 {i === currentSlide && (
-                  <div className="absolute inset-x-0 bottom-0 h-0.5" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+                  <div className="absolute inset-x-0 bottom-0 h-1" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
                 )}
-                <span className="absolute inset-0 flex items-center justify-center text-[6px] md:text-[7px] font-bold" style={{ color: colors.muted }}>
+                <span className={`absolute inset-0 flex items-center justify-center font-bold ${i === currentSlide ? 'text-[10px] md:text-xs text-white drop-shadow-md' : 'text-[8px] md:text-[10px] text-white/50'}`}>
                   {i + 1}
                 </span>
               </button>

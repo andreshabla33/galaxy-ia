@@ -5,7 +5,7 @@ import { useAppStore } from '../model/appStore'
 import { PROVIDER_CONFIG, type AIModelProvider } from '@/shared/config/providers'
 
 export default function SettingsModal() {
-  const { apiKey, provider, setApiKey, setProvider, settingsOpen, closeSettings } = useAppStore()
+  const { apiKey, provider, setApiKey, setProvider, falApiKey, setFalApiKey, settingsOpen, closeSettings } = useAppStore()
 
   if (!settingsOpen) return null
 
@@ -54,9 +54,9 @@ export default function SettingsModal() {
             </div>
           </div>
 
-          {/* API Key Input */}
+          {/* Generative API Key Input */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-zinc-400">API Key</label>
+            <label className="text-sm font-medium text-zinc-400">API Key del LLM ({provider.charAt(0).toUpperCase() + provider.slice(1)})</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Key className="h-4 w-4 text-zinc-600" />
@@ -69,8 +69,25 @@ export default function SettingsModal() {
                 className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block pl-10 p-3 outline-none transition-all"
               />
             </div>
+          </div>
+
+          {/* FAL AI API Key Input */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-zinc-400">FAL AI Key (Para generación de imágenes)</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Key className="h-4 w-4 text-zinc-600" />
+              </div>
+              <input
+                type="password"
+                value={falApiKey}
+                onChange={(e) => setFalApiKey(e.target.value)}
+                placeholder="Ingresa tu clave de Fal.ai..."
+                className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block pl-10 p-3 outline-none transition-all"
+              />
+            </div>
             <p className="text-xs text-zinc-600">
-              La llave se guarda localmente en tu navegador. No se envía a nuestros servidores.
+              Las llaves se guardan localmente en tu navegador. No se envían a nuestros servidores.
             </p>
           </div>
           

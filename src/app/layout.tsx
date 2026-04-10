@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { AuthWrapper } from "./AuthWrapper";
 
@@ -14,6 +15,9 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
+
 export const metadata: Metadata = {
   title: "Galaxy AI Canvas",
   description: "Crea documentos, presentaciones y código con tu voz",
@@ -27,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${playfair.variable} font-sans antialiased`}
       >
         <AuthWrapper>{children}</AuthWrapper>
       </body>

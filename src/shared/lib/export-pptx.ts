@@ -239,12 +239,13 @@ function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>, C
 
 // Normalize legacy/unknown layout names to the closest known layout
 function normalizeLayout(layout: string): string {
-  const KNOWN = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 'full-image', 'icon-grid', 'timeline', 'section-divider']
+  const KNOWN = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 'full-image', 'icon-grid', 'timeline', 'section-divider', 'bento-grid', 'comparison', 'chart']
   if (KNOWN.includes(layout)) return layout
   if (layout === 'image-text') return 'image-right'
   if (layout === 'content' || layout === 'text') return 'bullets'
   if (layout === 'divider' || layout === 'separator') return 'section-divider'
   if (layout === 'features' || layout === 'grid') return 'icon-grid'
+  if (layout === 'bento') return 'bento-grid'
   if (layout === 'roadmap' || layout === 'process') return 'timeline'
   if (layout === 'hero' || layout === 'splash') return 'full-image'
   return layout
@@ -346,6 +347,104 @@ function addSectionDividerSlide(pptx: any, slide: Slide, _images: Map<string, st
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addBentoGridSlide(pptx: any, slide: Slide, _images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.title, fontFace: 'Arial' })
+  }
+
+  const items = slide.items || []
+  const total = items.length
+  
+  items.forEach((item, i) => {
+    // simplified grid logic for pptx
+    const isFirst = i === 0;
+    const isWide = (total === 4 && i === 3) || (total === 5 && i === 3) || (total === 5 && i === 4);
+    
+    let x = 0.8 + (i % 3) * 2.8;
+    let y = 1.6 + Math.floor(i / 3) * 2.4;
+    let w = 2.6;
+    let h = 2.0;
+    
+    if (isFirst) {
+      w = 5.4; h = 4.4; x = 0.8; y = 1.6;
+    } else if (isWide) {
+      w = 5.4;
+    } else if (i > 0) {
+      if (i === 1) { x = 6.4; y = 1.6; }
+      if (i === 2) { x = 6.4; y = 4.0; }
+    }
+
+    s.addShape('rect', { x, y, w, h, fill: { color: '111827' }, rectRadius: 0.15 })
+    s.addText(item.icon || '●', { x: x + 0.1, y: y + 0.2, w: w - 0.2, h: 0.5, fontSize: 22, align: 'center', fontFace: 'Arial' })
+    s.addText(item.title, { x: x + 0.2, y: y + 0.7, w: w - 0.4, h: 0.4, fontSize: 13, bold: true, color: COLORS.white, align: 'center', fontFace: 'Arial' })
+    s.addText(item.description, { x: x + 0.2, y: y + 1.2, w: w - 0.4, h: 0.7, fontSize: 11, color: COLORS.muted, align: 'center', fontFace: 'Arial', valign: 'top' })
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addComparisonSlide(pptx: any, slide: Slide, _images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.title, fontFace: 'Arial', align: 'center' })
+  }
+
+  if (slide.left) {
+    s.addShape('rect', { x: 0.8, y: 1.5, w: 4.0, h: 3.5, fill: { color: '1f2937' }, rectRadius: 0.15 })
+    s.addText(slide.left.heading, { x: 1.0, y: 1.7, w: 3.6, h: 0.5, fontSize: 16, bold: true, color: COLORS.white, fontFace: 'Arial', align: 'center' })
+    s.addText(slide.left.content, { x: 1.0, y: 2.3, w: 3.6, h: 0.6, fontSize: 12, color: COLORS.muted, fontFace: 'Arial', valign: 'top', align: 'center' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((slide.left as any).items) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bulletText = (slide.left as any).items.map((it: string) => ({ text: it, options: { fontSize: 12, color: COLORS.muted, bullet: { code: '2715', color: 'f87171' } } }))
+      s.addText(bulletText, { x: 1.0, y: 3.0, w: 3.6, h: 2.0, fontFace: 'Arial', valign: 'top' })
+    }
+  }
+
+  if (slide.right) {
+    s.addShape('rect', { x: 5.2, y: 1.5, w: 4.0, h: 3.5, fill: { color: '111827' }, rectRadius: 0.15 })
+    s.addText(slide.right.heading, { x: 5.4, y: 1.7, w: 3.6, h: 0.5, fontSize: 18, bold: true, color: COLORS.title, fontFace: 'Arial', align: 'center' })
+    s.addText(slide.right.content, { x: 5.4, y: 2.3, w: 3.6, h: 0.6, fontSize: 14, color: COLORS.white, fontFace: 'Arial', valign: 'top', align: 'center' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((slide.right as any).items) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bulletText = (slide.right as any).items.map((it: string) => ({ text: it, options: { fontSize: 14, color: COLORS.white, bullet: { code: '2713', color: COLORS.accent } } }))
+      s.addText(bulletText, { x: 5.4, y: 3.0, w: 3.6, h: 2.0, fontFace: 'Arial', valign: 'top' })
+    }
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addChartSlide(pptx: any, slide: Slide, _images: Map<string, string>, COLORS: PptxColors) {
+  const s = pptx.addSlide()
+  s.background = { color: COLORS.bg }
+
+  if (slide.title) {
+    s.addText(slide.title, { x: 0.8, y: 0.5, w: 8.4, h: 0.8, fontSize: 24, bold: true, color: COLORS.title, fontFace: 'Arial', align: 'center' })
+  }
+
+  if (slide.stats) {
+    const gap = 4.0 / slide.stats.length;
+    slide.stats.forEach((stat, i) => {
+      const numMatch = stat.value.match(/(\d+(?:\.\d+)?)/);
+      const percent = numMatch ? Math.min(100, Math.max(5, parseFloat(numMatch[1]))) : 50;
+      const barW = (percent / 100) * 8.4;
+      
+      const yPos = 1.8 + (i * gap);
+      
+      s.addText(stat.label, { x: 0.8, y: yPos, w: 4.2, h: 0.4, fontSize: 14, bold: true, color: COLORS.white, fontFace: 'Arial' })
+      s.addText(stat.value, { x: 5.0, y: yPos, w: 4.2, h: 0.4, fontSize: 18, bold: true, color: COLORS.title, fontFace: 'Arial', align: 'right' })
+      s.addShape('rect', { x: 0.8, y: yPos + 0.4, w: 8.4, h: 0.15, fill: { color: '1f2937' }, rectRadius: 0.1 })
+      s.addShape('rect', { x: 0.8, y: yPos + 0.4, w: barW, h: 0.15, fill: { color: COLORS.title }, rectRadius: 0.1 })
+    })
+  }
+}
+
 export async function exportToPptx(data: PresentationData, titulo: string, images: Map<string, string>) {
   // Dynamic import — solo se carga cuando el usuario hace clic en "Descargar"
   const PptxGenJS = (await import('pptxgenjs')).default
@@ -372,6 +471,9 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
       case 'icon-grid': addIconGridSlide(pptx, slide, images, COLORS); break
       case 'timeline': addTimelineSlide(pptx, slide, images, COLORS); break
       case 'section-divider': addSectionDividerSlide(pptx, slide, images, COLORS); break
+      case 'bento-grid': addBentoGridSlide(pptx, slide, images, COLORS); break
+      case 'comparison': addComparisonSlide(pptx, slide, images, COLORS); break
+      case 'chart': addChartSlide(pptx, slide, images, COLORS); break
       default: addBulletsSlide(pptx, slide, images, COLORS); break
     }
   }

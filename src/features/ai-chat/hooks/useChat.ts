@@ -211,6 +211,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
         const { done, value } = await reader.read()
         if (done) {
           console.log('[useChat] Stream done. Total chunks:', chunkCount, '| Content length:', fullContent.length)
+          console.log('[DEBUG FULL CONTENT]:', fullContent)
           break
         }
 

@@ -33,18 +33,19 @@ export async function POST(req: Request) {
 
     // Route to Pro or Nano Banana 2 based on quality param
     // Pro: better composition/quality (10-20s). Fast: cheaper/faster (4-8s)
-    const model = quality === 'fast' ? 'fal-ai/nano-banana-2' : 'fal-ai/nano-banana-pro'
-    // 2K for Pro quality (presentations), 1K for fast/drafts
-    const resolution = quality === 'fast' ? '1K' : '2K'
+    const model = quality === 'fast' ? 'fal-ai/flux/schnell' : 'fal-ai/flux/dev'
+    const num_inference_steps = quality === 'fast' ? 4 : 28
 
     // Enhance prompt with quality suffix (avoid duplicating if it already contains quality keywords)
     const hasQualityKeywords = /professional|sharp focus|8K|UHD|detailed/i.test(prompt)
     const enhancedPrompt = hasQualityKeywords ? prompt : `${prompt}${QUALITY_SUFFIX}`
 
-    console.log(`[IMAGE] Model: ${model} | Aspect: ${falAspect} | Res: ${resolution}`)
+    console.log(`[IMAGE] Model: ${model} | Aspect: ${falAspect}`)
 
     // Random seed for variety in batch image generation
     const seed = Math.floor(Math.random() * 2147483647)
+
+    const image_size = falAspect === '16:9' ? 'landscape_16_9' : falAspect === '1:1' ? 'square_hd' : 'portrait_4_3'
 
     const response = await fetch(`https://fal.run/${model}`, {
       method: 'POST',
@@ -54,12 +55,8 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         prompt: enhancedPrompt,
-        negative_prompt: NEGATIVE_PROMPT,
-        num_images: 1,
-        aspect_ratio: falAspect,
-        output_format: 'jpeg',
-        resolution,
-        safety_tolerance: '4',
+        image_size,
+        num_inference_steps,
         seed,
       }),
     })

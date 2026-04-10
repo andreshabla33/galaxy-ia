@@ -14,6 +14,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // Bypass Auth form for local dev testing
+  if (!user && process.env.NODE_ENV === 'development') {
+    return <>{children}</>
+  }
+
   if (!user) {
     return <LoginScreen />
   }

@@ -234,7 +234,26 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
       // PASS: JSON Promotion for non-code artifacts (presentacion, imagen, documento)
       // Uses "partial JSON repair" pattern (industry best practice from Claude/v0)
       if (type === 'presentacion' || type === 'imagen') {
-        const trimmed = content.trim()
+        let trimmed = content.trim()
+        
+        // Strip inner markdown blocks if the LLM hallucinated them inside the XML tag
+        const innerJsonMatch = trimmed.match(/```(?:json)?\s*\n?(\{[\s\S]*?)\n?(?:```|$)/)
+        if (innerJsonMatch) {
+          trimmed = innerJsonMatch[1].trim()
+        } else {
+          // Alternatively, strip everything before the first '{' to guarantee clean parsing
+          const firstBrace = trimmed.indexOf('{')
+          if (firstBrace !== -1) {
+            trimmed = trimmed.substring(firstBrace)
+            const lastBrace = trimmed.lastIndexOf('}')
+            // Si el stream ya terminó y detectó '}', quitamos basura final. Si no (streaming), conservamos.
+            if (lastBrace !== -1 && lastBrace > 0 && !trimmed.endsWith('}')) {
+              // Not doing substring(0, lastBrace + 1) because streaming could be sending text inside '}'.
+              // Wait, if it's streaming, lastBrace is the end. We'll let tryParseJSON handle it.
+            }
+          }
+        }
+
         // Only attempt parse when content starts with { (looks like JSON)
         if (trimmed.startsWith('{')) {
           const jsonContent = tryParseJSON(trimmed)
@@ -246,7 +265,11 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
           const recovered = recoverFromMalformedJSON(type, trimmed)
           if (recovered) {
             console.log(`[parser] Emergency recovered ${type} from tag content`)
-            return recovered
+            // Combine with tag title, but use recovered slides
+            return {
+              ...recovered,
+              titulo: String(finalParsed.titulo || recovered.titulo || titulo).trim()
+            }
           }
           // Silently continue — viewer will show "Generando..." until JSON is complete
         }
@@ -294,39 +317,26 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
   }
 
   // --- PASS 1: Intento estándar JSON (no-greedy) ---
-  const standardRegex = /```artifact:(documento|presentacion|codigo|imagen)\s*\n([\s\S]*?)```/
+  const standardRegex = /```artifact:(documento|presentacion|codigo|imagen)\s*\n([\s\S]*?)(?:```|$)/
   const match = text.match(standardRegex)
 
   if (match) {
     const type = match[1] as ArtifactType
     const jsonStr = match[2].trim()
-    try {
-      const parsed = JSON.parse(jsonStr)
+    
+    const parsed = tryParseJSON(jsonStr)
+    if (parsed) {
       return {
         type,
-        titulo: parsed.titulo || 'Sin título',
-        subtipo: parsed.subtipo || 'otro',
+        titulo: String(parsed.titulo || 'Sin título'),
+        subtipo: String(parsed.subtipo || 'otro'),
         contenido: buildContenido(type, parsed),
         raw: jsonStr,
       }
-    } catch {
-      console.warn(`[parser] Standard parse failed for ${type}, trying to clean JSON...`)
-      
-      try {
-        const cleaned = cleanJSON(jsonStr)
-        const parsed = JSON.parse(cleaned)
-        return {
-          type,
-          titulo: parsed.titulo || 'Sin título',
-          subtipo: parsed.subtipo || 'otro',
-          contenido: buildContenido(type, parsed),
-          raw: cleaned,
-        }
-      } catch {
-        // Falló limpieza, intentar recuperación de campos vía regex
-        const recovered = recoverFromMalformedJSON(type, jsonStr)
-        if (recovered) return recovered
-      }
+    } else {
+      console.warn(`[parser] Standard parse failed for ${type}, trying recovery...`)
+      const recovered = recoverFromMalformedJSON(type, jsonStr)
+      if (recovered) return recovered
 
       // Si es documento y todo falló, devolver el crudo filtrado
       if (type === 'documento') {
@@ -343,12 +353,12 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
 
   // --- PASS 2: Fallback — detectar JSON en cualquier bloque de código (```json, ```, etc.) ---
   // Handles case where LLM forgets the artifact: wrapper
-  const fallbackRegex = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*```/g
+  const fallbackRegex = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*(?:```|$)/g
   let fbMatch
   while ((fbMatch = fallbackRegex.exec(text)) !== null) {
     const jsonStr = fbMatch[1].trim()
-    try {
-      const parsed = JSON.parse(jsonStr)
+    const parsed = tryParseJSON(jsonStr)
+    if (parsed) {
       // Detect type from fields
       let type: ArtifactType | null = null
       if (parsed.html !== undefined && (parsed.framework || parsed.subtipo)) type = 'codigo'
@@ -360,14 +370,12 @@ export function parseArtifactFromResponse(text: string): ParsedArtifact | null {
         console.warn(`[parser] Fallback: recovered ${type} artifact without wrapper`)
         return {
           type,
-          titulo: parsed.titulo || 'Sin título',
-          subtipo: parsed.subtipo || 'otro',
+          titulo: String(parsed.titulo || 'Sin título'),
+          subtipo: String(parsed.subtipo || 'otro'),
           contenido: buildContenido(type, parsed),
           raw: jsonStr,
         }
       }
-    } catch {
-      // Not valid JSON, continue
     }
   }
 
@@ -387,14 +395,25 @@ function buildContenido(type: ArtifactType, parsed: Record<string, unknown>): Re
       }
 
     case 'presentacion':
+      // Defensive mapping in case LLM uses a different key instead of "slides"
+      let recoveredSlides = Array.isArray(parsed.slides) ? parsed.slides :
+                            Array.isArray(parsed.diapositivas) ? parsed.diapositivas :
+                            Array.isArray((parsed.contenido as any)?.slides) ? (parsed.contenido as any)?.slides :
+                            Array.isArray((parsed.contenido as any)?.diapositivas) ? (parsed.contenido as any)?.diapositivas :
+                            Array.isArray(parsed.pages) ? parsed.pages : [];
+
+      if (!Array.isArray(recoveredSlides)) {
+        recoveredSlides = [];
+      }
+
       // Only log when slides are successfully found (avoid spam during streaming)
-      if (Array.isArray(parsed.slides) && parsed.slides.length > 0) {
-        console.log(`[parser] Presentation ready: ${parsed.slides.length} slides`)
+      if (recoveredSlides.length > 0) {
+        console.log(`[parser] Presentation ready: ${recoveredSlides.length} slides`)
       }
       return {
-        slides: parsed.slides || [],
+        slides: recoveredSlides,
         theme: parsed.theme || 'dark',
-        total_slides: Array.isArray(parsed.slides) ? parsed.slides.length : 0,
+        total_slides: recoveredSlides.length,
         ...(parsed.color_scheme ? { color_scheme: parsed.color_scheme } : {}),
       }
 

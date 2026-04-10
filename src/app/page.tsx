@@ -363,9 +363,19 @@ export default function Home() {
       )}
 
       {/* User avatar menu — hidden when panel overlaps on desktop */}
-      {user && !(isDesktop && panelOpen && messages.length > 0) && (
+      {!(isDesktop && panelOpen && messages.length > 0) && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
-          <UserMenu user={user} />
+          {user ? (
+            <UserMenu user={user} />
+          ) : process.env.NODE_ENV === 'development' ? (
+            <button
+              onClick={() => useAppStore.getState().openSettings()}
+              className="p-2 w-10 h-10 rounded-full bg-zinc-900/60 backdrop-blur-xl border border-white/5 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center justify-center shadow-xl shadow-black/40 group overflow-hidden"
+              title="Ajustes (Dev)"
+            >
+              <span className="text-lg">⚙️</span>
+            </button>
+          ) : null}
         </div>
       )}
 
