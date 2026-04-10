@@ -396,11 +396,11 @@ function buildContenido(type: ArtifactType, parsed: Record<string, unknown>): Re
 
     case 'presentacion':
       // Defensive mapping in case LLM uses a different key instead of "slides"
-      let recoveredSlides = Array.isArray(parsed.slides) ? parsed.slides :
+      let recoveredSlides = (Array.isArray(parsed.slides) ? parsed.slides :
                             Array.isArray(parsed.diapositivas) ? parsed.diapositivas :
-                            Array.isArray((parsed.contenido as any)?.slides) ? (parsed.contenido as any)?.slides :
-                            Array.isArray((parsed.contenido as any)?.diapositivas) ? (parsed.contenido as any)?.diapositivas :
-                            Array.isArray(parsed.pages) ? parsed.pages : [];
+                            Array.isArray((parsed.contenido as Record<string, unknown>)?.slides) ? (parsed.contenido as Record<string, unknown>)?.slides :
+                            Array.isArray((parsed.contenido as Record<string, unknown>)?.diapositivas) ? (parsed.contenido as Record<string, unknown>)?.diapositivas :
+                            Array.isArray(parsed.pages) ? parsed.pages : []) as Record<string, unknown>[];
 
       if (!Array.isArray(recoveredSlides)) {
         recoveredSlides = [];

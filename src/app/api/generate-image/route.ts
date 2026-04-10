@@ -15,7 +15,6 @@ const ASPECT_MAP: Record<string, string> = {
 
 // Quality enhancers appended to every prompt for better image generation
 const QUALITY_SUFFIX = ', high quality, professional, sharp focus, detailed, 8K UHD'
-const NEGATIVE_PROMPT = 'text, watermark, logo, border, frame, signature, blurry, low quality, distorted, ugly, duplicate, morbid, mutilated'
 
 export async function POST(req: Request) {
   try {

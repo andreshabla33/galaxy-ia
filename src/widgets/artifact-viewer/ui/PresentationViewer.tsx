@@ -11,8 +11,8 @@ interface Slide {
   subtitle?: string
   bullets?: string[]
   notes?: string
-  left?: { heading: string; content: string }
-  right?: { heading: string; content: string }
+  left?: { heading: string; content: string; items?: string[] }
+  right?: { heading: string; content: string; items?: string[] }
   stats?: { value: string; label: string }[]
   quote?: string
   author?: string
@@ -302,10 +302,10 @@ function SlideNumber({ index, total, muted }: { index: number; total: number; mu
   )
 }
 
-function GlassCard({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+function GlassCard({ children, className = '', delay = 0, style }: { children: React.ReactNode; className?: string; delay?: number; style?: React.CSSProperties }) {
   return (
     <div className={`relative rounded-2xl border border-white/[0.12] backdrop-blur-md overflow-hidden animate-scale-in shadow-xl shadow-black/30 ${className}`}
-      style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)', animationDelay: `${delay}ms`, opacity: 0 }}>
+      style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)', animationDelay: `${delay}ms`, opacity: 0, ...style }}>
       {/* Top highlight for glass effect */}
       <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <div className="relative z-10">{children}</div>

@@ -113,7 +113,8 @@ async function loadPromptFromDB(tipo: string): Promise<string | null> {
   }
 
   try {
-    const res = await supabase.from('prompt_templates').select('system_prompt').eq('tipo', tipo).eq('activo', true).single()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = await supabase.from('prompt_templates').select('system_prompt').eq('tipo', tipo).eq('activo', true).single()
     if (res.data) {
       promptCache.set(tipo, { prompt: res.data.system_prompt, ts: Date.now() })
       return res.data.system_prompt
