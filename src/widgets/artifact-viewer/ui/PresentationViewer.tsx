@@ -41,8 +41,62 @@ const DEFAULT_COLORS: ColorScheme = {
   muted: 'rgba(255,255,255,0.45)',
 }
 
-function parseColorScheme(contenido: Record<string, unknown>): ColorScheme {
+type ThemeStyle = 'dark-glass' | 'light-minimal' | 'bold-gradient' | 'corporate' | 'editorial'
+
+function parseThemeStyle(contenido: Record<string, unknown>): ThemeStyle {
+  const ts = contenido.theme_style as string | undefined
+  const valid: ThemeStyle[] = ['dark-glass', 'light-minimal', 'bold-gradient', 'corporate', 'editorial']
+  if (ts && valid.includes(ts as ThemeStyle)) return ts as ThemeStyle
+  // Fallback: infer from theme field or dark default
+  const theme = contenido.theme as string | undefined
+  if (theme === 'light') return 'light-minimal'
+  return 'dark-glass'
+}
+
+function parseColorScheme(contenido: Record<string, unknown>, themeStyle: ThemeStyle): ColorScheme {
   const cs = contenido.color_scheme as Record<string, string> | undefined
+
+  // Light themes: override text/muted/bg to ensure readability even if LLM sent dark colors
+  if (themeStyle === 'light-minimal') {
+    return {
+      primary: cs?.primary || '#4f46e5',
+      secondary: cs?.secondary || '#0ea5e9',
+      background: '#ffffff',
+      text: '#111827',
+      muted: '#6b7280',
+    }
+  }
+  if (themeStyle === 'corporate') {
+    return {
+      primary: cs?.primary || '#1e3a5f',
+      secondary: cs?.secondary || '#f59e0b',
+      background: '#f0f4f8',
+      text: '#1e293b',
+      muted: '#64748b',
+    }
+  }
+  if (themeStyle === 'editorial') {
+    return {
+      primary: cs?.primary || '#111827',
+      secondary: cs?.secondary || '#ef4444',
+      background: '#faf9f7',
+      text: '#1c1917',
+      muted: '#78716c',
+    }
+  }
+  if (themeStyle === 'bold-gradient') {
+    const p = cs?.primary || '#f97316'
+    const s = cs?.secondary || '#ec4899'
+    return {
+      primary: p,
+      secondary: s,
+      background: `linear-gradient(135deg, ${p} 0%, ${s} 100%)`,
+      text: 'rgba(255,255,255,0.95)',
+      muted: 'rgba(255,255,255,0.70)',
+    }
+  }
+
+  // dark-glass (default)
   if (!cs) return DEFAULT_COLORS
   return {
     primary: cs.primary || DEFAULT_COLORS.primary,
@@ -277,57 +331,127 @@ function normalizeLayout(layout: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DECORATIVE ELEMENTS — give slides depth and visual richness
+// DECORATIVE ELEMENTS — theme-aware
 // ═══════════════════════════════════════════════════════════════
 
-function DecoOrbs({ primary, secondary }: { primary: string; secondary: string }) {
-  return (
-    <>
-      <div className="absolute -top-[20%] -right-[10%] w-[45%] aspect-square rounded-full opacity-[0.07] blur-[80px] pointer-events-none" style={{ background: primary }} />
-      <div className="absolute -bottom-[15%] -left-[10%] w-[35%] aspect-square rounded-full opacity-[0.05] blur-[60px] pointer-events-none" style={{ background: secondary }} />
-      {/* Radial center glow for depth */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] aspect-square rounded-full opacity-[0.03] blur-[100px] pointer-events-none" style={{ background: `radial-gradient(circle, ${primary} 0%, transparent 70%)` }} />
-    </>
-  )
+function SlideDecorations({ themeStyle, colors }: { themeStyle: ThemeStyle; colors: ColorScheme }) {
+  if (themeStyle === 'dark-glass') {
+    return (
+      <>
+        <div className="absolute -top-[20%] -right-[10%] w-[45%] aspect-square rounded-full opacity-[0.07] blur-[80px] pointer-events-none" style={{ background: colors.primary }} />
+        <div className="absolute -bottom-[15%] -left-[10%] w-[35%] aspect-square rounded-full opacity-[0.05] blur-[60px] pointer-events-none" style={{ background: colors.secondary }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] aspect-square rounded-full opacity-[0.03] blur-[100px] pointer-events-none" style={{ background: `radial-gradient(circle, ${colors.primary} 0%, transparent 70%)` }} />
+        <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+      </>
+    )
+  }
+  if (themeStyle === 'bold-gradient') {
+    return (
+      <>
+        {/* Large semi-transparent circles for depth */}
+        <div className="absolute -top-[30%] -right-[20%] w-[70%] aspect-square rounded-full opacity-[0.15] pointer-events-none" style={{ background: 'rgba(255,255,255,0.2)' }} />
+        <div className="absolute -bottom-[30%] -left-[20%] w-[60%] aspect-square rounded-full opacity-[0.10] pointer-events-none" style={{ background: 'rgba(255,255,255,0.15)' }} />
+        {/* Grid pattern */}
+        <div className="absolute inset-0 z-0 opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      </>
+    )
+  }
+  if (themeStyle === 'corporate') {
+    return (
+      <>
+        {/* Top navy accent bar */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 z-10" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+        {/* Corner geometric shape */}
+        <div className="absolute top-0 right-0 w-[25%] h-[35%] opacity-[0.06] pointer-events-none" style={{ background: colors.primary, clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />
+        <div className="absolute bottom-0 left-0 w-[20%] h-[25%] opacity-[0.04] pointer-events-none" style={{ background: colors.secondary, clipPath: 'polygon(0 100%, 0 0, 100% 100%)' }} />
+      </>
+    )
+  }
+  if (themeStyle === 'editorial') {
+    return (
+      <>
+        {/* Bold vertical accent line on left */}
+        <div className="absolute top-0 left-0 bottom-0 w-1.5 z-10" style={{ background: colors.secondary }} />
+        {/* Large faint background letter/number for texture */}
+        <div className="absolute bottom-0 right-4 text-[16rem] font-black leading-none opacity-[0.03] select-none pointer-events-none" style={{ color: colors.primary }}>G</div>
+      </>
+    )
+  }
+  // light-minimal: no decorations — whitespace IS the design
+  return null
 }
 
-function SlideNumber({ index, total, muted }: { index: number; total: number; muted: string }) {
+function SlideNumber({ index, total, themeStyle, colors }: { index: number; total: number; themeStyle: ThemeStyle; colors: ColorScheme }) {
+  const isLight = themeStyle === 'light-minimal' || themeStyle === 'corporate' || themeStyle === 'editorial'
+  const textColor = isLight ? colors.muted : 'rgba(255,255,255,0.4)'
+  const lineColor = isLight ? colors.muted : 'rgba(255,255,255,0.3)'
   return (
     <div className="absolute top-3 right-4 md:top-4 md:right-5 z-10 flex items-center gap-1.5">
-      <div className="h-px w-6 opacity-30" style={{ backgroundColor: muted }} />
-      <span className="text-[10px] md:text-[11px] font-medium tracking-widest opacity-40" style={{ color: muted }}>
+      <div className="h-px w-6 opacity-40" style={{ backgroundColor: lineColor }} />
+      <span className="text-[10px] md:text-[11px] font-medium tracking-widest opacity-60" style={{ color: textColor }}>
         {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
       </span>
     </div>
   )
 }
 
-function GlassCard({ children, className = '', delay = 0, style }: { children: React.ReactNode; className?: string; delay?: number; style?: React.CSSProperties }) {
+function GlassCard({ children, className = '', delay = 0, style, themeStyle = 'dark-glass', colors }: { children: React.ReactNode; className?: string; delay?: number; style?: React.CSSProperties; themeStyle?: ThemeStyle; colors?: ColorScheme }) {
+  if (themeStyle === 'light-minimal') {
+    return (
+      <div className={`relative rounded-2xl overflow-hidden animate-scale-in ${className}`}
+        style={{ background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', animationDelay: `${delay}ms`, opacity: 0, ...style }}>
+        <div className="relative z-10">{children}</div>
+      </div>
+    )
+  }
+  if (themeStyle === 'corporate') {
+    return (
+      <div className={`relative rounded-xl overflow-hidden animate-scale-in ${className}`}
+        style={{ background: '#ffffff', border: `1px solid #e2e8f0`, borderLeft: `3px solid ${colors?.primary || '#1e3a5f'}`, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', animationDelay: `${delay}ms`, opacity: 0, ...style }}>
+        <div className="relative z-10">{children}</div>
+      </div>
+    )
+  }
+  if (themeStyle === 'editorial') {
+    return (
+      <div className={`relative overflow-hidden animate-scale-in ${className}`}
+        style={{ background: 'transparent', borderBottom: `2px solid ${colors?.primary || '#111827'}`, borderRadius: 0, animationDelay: `${delay}ms`, opacity: 0, ...style }}>
+        <div className="relative z-10">{children}</div>
+      </div>
+    )
+  }
+  if (themeStyle === 'bold-gradient') {
+    return (
+      <div className={`relative rounded-2xl overflow-hidden animate-scale-in ${className}`}
+        style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', animationDelay: `${delay}ms`, opacity: 0, ...style }}>
+        <div className="relative z-10">{children}</div>
+      </div>
+    )
+  }
+  // dark-glass default
   return (
     <div className={`relative rounded-2xl border border-white/[0.12] backdrop-blur-md overflow-hidden animate-scale-in shadow-xl shadow-black/30 ${className}`}
       style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)', animationDelay: `${delay}ms`, opacity: 0, ...style }}>
-      {/* Top highlight for glass effect */}
       <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <div className="relative z-10">{children}</div>
     </div>
   )
 }
 
-function BulletItem({ text, color, index }: { text: string; color: string; index: number }) {
-  // Bold the first phrase (up to first colon, dash, or period) for visual hierarchy
+function BulletItem({ text, color, textColor, index }: { text: string; color: string; textColor?: string; index: number }) {
   const separatorIdx = text.search(/[:\-–—.]/);
   const hasSeparator = separatorIdx > 0 && separatorIdx < text.length * 0.6;
+  const tc = textColor || 'rgba(255,255,255,0.9)'
   return (
-    <li className="flex items-start gap-4 group animate-fade-in-up opacity-0" style={{ animationDelay: `${index * 80 + 100}ms` }}>
+    <li className="flex items-start gap-4 group animate-fade-in-up opacity-0" style={{ animationDelay: `${index * 80 + 100}ms`, color: tc }}>
       <span className="relative mt-[8px] shrink-0">
         <span className="block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-        <span className="absolute inset-0 w-2.5 h-2.5 rounded-full opacity-60 blur-[4px]" style={{ backgroundColor: color }} />
       </span>
       <span className="text-base md:text-[17px] leading-relaxed">
         {hasSeparator ? (
-          <><span className="font-semibold text-white/95">{text.slice(0, separatorIdx + 1)}</span><span className="opacity-85">{text.slice(separatorIdx + 1)}</span></>
+          <><span className="font-semibold">{text.slice(0, separatorIdx + 1)}</span><span style={{ opacity: 0.8 }}>{text.slice(separatorIdx + 1)}</span></>
         ) : (
-          <span className="opacity-90">{text}</span>
+          <span>{text}</span>
         )}
       </span>
     </li>
@@ -338,26 +462,42 @@ function BulletItem({ text, color, index }: { text: string; color: string; index
 // SLIDE RENDERER — Premium visual quality per layout
 // ═══════════════════════════════════════════════════════════════
 
-function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning }: { slide: Slide; index: number; total: number; colors: ColorScheme; isTransitioning?: boolean }) {
+function SlideRenderer({ slide: rawSlide, index, total, colors, themeStyle, isTransitioning }: { slide: Slide; index: number; total: number; colors: ColorScheme; themeStyle: ThemeStyle; isTransitioning?: boolean }) {
   const slide = useMemo(() => ({ ...rawSlide, layout: normalizeLayout(rawSlide.layout) }), [rawSlide])
   const hasImage = !!slide.image_prompt
 
+  // Theme-specific font family
+  const fontFamily = themeStyle === 'editorial'
+    ? "'Playfair Display', Georgia, serif"
+    : themeStyle === 'corporate'
+      ? "'Inter', 'Helvetica Neue', Arial, sans-serif"
+      : "'Inter', 'SF Pro Display', -apple-system, sans-serif"
+
+  // Theme-specific border/shadow
+  const isLight = themeStyle === 'light-minimal' || themeStyle === 'corporate' || themeStyle === 'editorial'
+  const borderStyle = isLight ? '1px solid #e5e7eb' : '1px solid rgba(255,255,255,0.08)'
+  const shadowStyle = isLight ? '0 8px 48px rgba(0,0,0,0.10)' : '0 25px 60px rgba(0,0,0,0.5)'
+
   const slideStyle: React.CSSProperties = {
     background: colors.background,
-    fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+    fontFamily,
     transition: 'opacity 0.3s ease, transform 0.3s ease',
     opacity: isTransitioning ? 0 : 1,
     transform: isTransitioning ? 'translateY(8px)' : 'translateY(0)',
+    border: borderStyle,
+    boxShadow: shadowStyle,
   }
 
-  return (
-    <div className="w-full aspect-video rounded-3xl border border-white/[0.12] flex flex-col relative overflow-hidden shadow-2xl shadow-black/50" style={slideStyle}>
-      <DecoOrbs primary={colors.primary} secondary={colors.secondary} />
-      
-      {/* Premium subtle dot grid pattern in background */}
-      <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+  // Helper: GlassCard with theme baked in
+  const Card = ({ children, className = '', delay = 0, style }: { children: React.ReactNode; className?: string; delay?: number; style?: React.CSSProperties }) => (
+    <GlassCard themeStyle={themeStyle} colors={colors} className={className} delay={delay} style={style}>{children}</GlassCard>
+  )
 
-      <SlideNumber index={index} total={total} muted={colors.muted} />
+  return (
+    <div className="w-full aspect-video rounded-3xl flex flex-col relative overflow-hidden" style={slideStyle}>
+      <SlideDecorations themeStyle={themeStyle} colors={colors} />
+
+      <SlideNumber index={index} total={total} themeStyle={themeStyle} colors={colors} />
 
       {/* Background image overlay for content-heavy layouts */}
       {hasImage && !['image-left', 'image-right', 'title'].includes(slide.layout) && (
@@ -376,8 +516,12 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
         {slide.layout === 'title' && (
           <div className={`flex items-center ${hasImage ? 'gap-10' : ''} h-full`}>
             <div className={`flex flex-col justify-center animate-fade-in-up opacity-0 ${hasImage ? 'flex-1' : 'w-full items-center text-center'}`} style={{ animationDelay: '100ms' }}>
-              <div className="w-16 h-1.5 rounded-full mb-8 opacity-90 shadow-lg shadow-black/20" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
-              <h1 className="text-3xl md:text-3xl lg:text-5xl font-bold leading-tight tracking-tight mb-5 text-balance" style={{ color: colors.primary }}>
+              {themeStyle === 'editorial' ? (
+                <div className="w-16 h-1 mb-6" style={{ background: colors.secondary }} />
+              ) : (
+                <div className="w-16 h-1.5 rounded-full mb-8" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+              )}
+              <h1 className={`leading-tight tracking-tight mb-5 text-balance ${themeStyle === 'editorial' ? 'text-4xl md:text-6xl font-black' : 'text-3xl md:text-5xl font-bold'}`} style={{ color: colors.primary }}>
                 {slide.title}
               </h1>
               {slide.subtitle && (
@@ -388,8 +532,7 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             </div>
             {hasImage && (
               <div className="w-[45%] shrink-0 relative animate-scale-in opacity-0" style={{ animationDelay: '200ms' }}>
-                <div className="absolute -inset-4 rounded-[2rem] opacity-25 blur-2xl" style={{ background: colors.primary }} />
-                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-[1.5rem] shadow-2xl shadow-black/40 ring-1 ring-white/10" />
+                <SlideImage prompt={slide.image_prompt!} className={`relative aspect-[4/3] shadow-2xl ${themeStyle === 'editorial' ? '!rounded-none' : '!rounded-[1.5rem]'}`} />
               </div>
             )}
           </div>
@@ -400,16 +543,15 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
           <div className="flex items-center gap-6 md:gap-10 h-full">
             {hasImage && (
               <div className="w-[42%] shrink-0 relative">
-                <div className="absolute -inset-2 rounded-2xl opacity-15 blur-lg" style={{ background: colors.primary }} />
-                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-2xl shadow-lg shadow-black/20" />
+                <SlideImage prompt={slide.image_prompt!} className={`relative aspect-[4/3] shadow-lg ${themeStyle === 'editorial' ? '!rounded-none' : '!rounded-2xl'}`} />
               </div>
             )}
             <div className="flex-1 flex flex-col justify-center min-w-0">
               <h2 className="text-xl md:text-2xl font-bold mb-3 tracking-tight" style={{ color: colors.text }}>{slide.title}</h2>
               {slide.content && <p className="text-sm leading-relaxed mb-4" style={{ color: colors.muted }}>{slide.content}</p>}
               {slide.bullets && (
-                <ul className="space-y-2.5" style={{ color: colors.muted }}>
-                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.primary} index={i} />)}
+                <ul className="space-y-2.5">
+                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.primary} textColor={colors.text} index={i} />)}
                 </ul>
               )}
             </div>
@@ -423,8 +565,8 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
               <h2 className="text-xl md:text-2xl font-bold mb-3 tracking-tight" style={{ color: colors.text }}>{slide.title}</h2>
               {slide.content && <p className="text-sm leading-relaxed mb-4" style={{ color: colors.muted }}>{slide.content}</p>}
               {slide.bullets && (
-                <ul className="space-y-2.5" style={{ color: colors.muted }}>
-                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.secondary} index={i} />)}
+                <ul className="space-y-2.5">
+                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.secondary} textColor={colors.text} index={i} />)}
                 </ul>
               )}
             </div>
@@ -441,8 +583,8 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
         {slide.layout === 'bullets' && (
           <div className="max-w-3xl">
             <h2 className="text-2xl md:text-3xl font-bold mb-6 tracking-tight animate-fade-in-up opacity-0" style={{ color: colors.primary }}>{slide.title}</h2>
-            <ul className="space-y-4" style={{ color: colors.text }}>
-              {slide.bullets?.map((bullet, i) => <BulletItem key={i} text={bullet} color={colors.secondary} index={i} />)}
+            <ul className="space-y-4">
+              {slide.bullets?.map((bullet, i) => <BulletItem key={i} text={bullet} color={colors.secondary} textColor={colors.text} index={i} />)}
             </ul>
           </div>
         )}
@@ -453,18 +595,18 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             <h2 className="text-xl md:text-2xl font-bold mb-6 tracking-tight" style={{ color: colors.primary }}>{slide.title}</h2>
             <div className="grid grid-cols-2 gap-4 md:gap-6">
               {slide.left && (
-                <GlassCard className="p-5 md:p-6">
+                <Card className="p-5 md:p-6">
                   <div className="w-8 h-1 rounded-full mb-3" style={{ backgroundColor: colors.primary }} />
                   <h3 className="text-sm font-bold mb-2 tracking-tight" style={{ color: colors.primary }}>{slide.left.heading}</h3>
                   <p className="text-xs md:text-sm leading-relaxed" style={{ color: colors.muted }}>{slide.left.content}</p>
-                </GlassCard>
+                </Card>
               )}
               {slide.right && (
-                <GlassCard className="p-5 md:p-6">
+                <Card className="p-5 md:p-6">
                   <div className="w-8 h-1 rounded-full mb-3" style={{ backgroundColor: colors.secondary }} />
                   <h3 className="text-sm font-bold mb-2 tracking-tight" style={{ color: colors.secondary }}>{slide.right.heading}</h3>
                   <p className="text-xs md:text-sm leading-relaxed" style={{ color: colors.muted }}>{slide.right.content}</p>
-                </GlassCard>
+                </Card>
               )}
             </div>
           </div>
@@ -476,13 +618,13 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             <h2 className="text-xl md:text-2xl font-bold mb-8 text-center tracking-tight" style={{ color: colors.primary }}>{slide.title}</h2>
             <div className="flex justify-center gap-4 md:gap-6 flex-wrap">
               {slide.stats?.map((stat, i) => (
-                <GlassCard key={i} className="text-center px-6 py-5 md:px-8 md:py-6 min-w-[120px]">
+                <Card key={i} className="text-center px-6 py-5 md:px-8 md:py-6 min-w-[120px]">
                   <div className="text-3xl md:text-4xl font-extrabold tracking-tight" style={{ color: colors.primary }}>
                     {stat.value}
                   </div>
                   <div className="w-6 h-0.5 rounded-full mx-auto my-2 opacity-30" style={{ backgroundColor: colors.secondary }} />
                   <div className="text-xs md:text-sm font-medium uppercase tracking-wider" style={{ color: colors.muted }}>{stat.label}</div>
-                </GlassCard>
+                </Card>
               ))}
             </div>
           </div>
@@ -491,8 +633,8 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
         {/* ════ QUOTE ════ */}
         {slide.layout === 'quote' && (
           <div className="flex flex-col items-center justify-center text-center px-8 md:px-16">
-            <div className="text-6xl md:text-7xl font-serif leading-none -mb-2" style={{ color: colors.primary, opacity: 0.2 }}>&ldquo;</div>
-            <GlassCard className="px-8 py-6 md:px-12 md:py-8 max-w-2xl">
+            <div className="text-6xl md:text-7xl font-serif leading-none -mb-2" style={{ color: colors.primary, opacity: 0.3 }}>&ldquo;</div>
+            <Card className="px-8 py-6 md:px-12 md:py-8 max-w-2xl">
               <p className="text-base md:text-xl italic leading-relaxed" style={{ color: colors.text }}>
                 {slide.quote}
               </p>
@@ -504,7 +646,7 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
                   </p>
                 </>
               )}
-            </GlassCard>
+            </Card>
           </div>
         )}
 
@@ -514,17 +656,16 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             <div className="w-16 h-1 rounded-full mb-8" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
             <h1 className="text-2xl md:text-4xl font-bold tracking-tight mb-4" style={{ color: colors.primary }}>{slide.title}</h1>
             {slide.contact && (
-              <GlassCard className="px-6 py-3 mt-2">
+              <Card className="px-6 py-3 mt-2">
                 <p className="text-sm font-medium" style={{ color: colors.muted }}>{slide.contact}</p>
-              </GlassCard>
+              </Card>
             )}
           </div>
         )}
 
-        {/* ════ FULL-IMAGE (NEW) ════ */}
+        {/* ════ FULL-IMAGE ════ */}
         {slide.layout === 'full-image' && (
           <div className="absolute inset-0 flex flex-col items-center justify-end pb-16 md:pb-24 z-[2]">
-            {/* Full-bleed background image */}
             {hasImage && (
               <div className="absolute inset-0 z-0 animate-scale-in opacity-0" style={{ animationDuration: '1.2s' }}>
                 <SlideImage prompt={slide.image_prompt!} className="w-full h-full !rounded-none !border-0" />
@@ -533,7 +674,6 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
                 }} />
               </div>
             )}
-            {/* Highlight text — large and dramatic */}
             {slide.highlight_text && (
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-center px-10 mb-4 leading-tight relative z-10 animate-fade-in-up opacity-0 drop-shadow-2xl text-balance" style={{ color: '#ffffff', animationDelay: '300ms' }}>
                 {slide.highlight_text}
@@ -552,42 +692,39 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
           </div>
         )}
 
-        {/* ════ ICON-GRID (NEW) ════ */}
+        {/* ════ ICON-GRID ════ */}
         {slide.layout === 'icon-grid' && (
           <div>
             <h2 className="text-xl md:text-2xl font-bold mb-8 tracking-tight" style={{ color: colors.primary }}>{slide.title}</h2>
             <div className={`grid gap-4 md:gap-5 ${(slide.items?.length || 0) >= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3'}`}>
               {slide.items?.map((item, i) => (
-                <GlassCard key={i} className="p-5 md:p-6 text-center">
+                <Card key={i} className="p-5 md:p-6 text-center">
                   <div className="text-3xl mb-3">{item.icon || '●'}</div>
                   <h3 className="text-sm font-bold mb-2 tracking-tight" style={{ color: colors.text }}>{item.title}</h3>
                   <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>{item.description}</p>
                   <div className="w-6 h-0.5 rounded-full mx-auto mt-3 opacity-50" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
-                </GlassCard>
+                </Card>
               ))}
             </div>
           </div>
         )}
 
-        {/* ════ TIMELINE (NEW) ════ */}
+        {/* ════ TIMELINE ════ */}
         {slide.layout === 'timeline' && (
           <div>
             <h2 className="text-xl md:text-2xl font-bold mb-8 tracking-tight" style={{ color: colors.primary }}>{slide.title}</h2>
             <div className="relative">
-              {/* Horizontal connector line */}
               <div className="absolute top-4 left-0 right-0 h-px opacity-20" style={{ backgroundColor: colors.primary }} />
               <div className={`grid gap-3 md:gap-4 ${(slide.items?.length || 0) >= 5 ? 'grid-cols-5' : (slide.items?.length || 0) >= 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 {slide.items?.map((item, i) => (
                   <div key={i} className="flex flex-col items-center text-center relative">
-                    {/* Dot on the line */}
                     <div className="relative z-10 mb-4">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.primary }} />
-                      <div className="absolute inset-0 w-3 h-3 rounded-full opacity-40 blur-[4px]" style={{ backgroundColor: colors.primary }} />
                     </div>
-                    <GlassCard className="p-3 md:p-4 w-full">
+                    <Card className="p-3 md:p-4 w-full">
                       <h4 className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: colors.primary }}>{item.title}</h4>
                       <p className="text-[11px] md:text-xs leading-relaxed" style={{ color: colors.muted }}>{item.description}</p>
-                    </GlassCard>
+                    </Card>
                   </div>
                 ))}
               </div>
@@ -595,80 +732,77 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
           </div>
         )}
 
-        {/* ════ SECTION-DIVIDER (NEW) ════ */}
+        {/* ════ SECTION-DIVIDER ════ */}
         {slide.layout === 'section-divider' && (
           <div className="flex flex-col items-center justify-center text-center h-full relative">
             {slide.section_number && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] md:text-[16rem] font-bold opacity-[0.03] pointer-events-none select-none z-0" style={{ color: colors.primary }}>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] md:text-[16rem] font-bold opacity-[0.04] pointer-events-none select-none z-0" style={{ color: colors.primary }}>
                 {String(slide.section_number).padStart(2, '0')}
               </div>
             )}
             <div className="w-20 h-1.5 rounded-full mb-8 relative z-10 animate-scale-in opacity-0" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-5 relative z-10 animate-fade-in-up opacity-0 drop-shadow-lg text-balance" style={{ color: colors.text, animationDelay: '100ms' }}>{slide.title}</h1>
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-5 relative z-10 animate-fade-in-up opacity-0 text-balance" style={{ color: colors.text, animationDelay: '100ms' }}>{slide.title}</h1>
             {slide.subtitle && (
               <p className="text-base md:text-lg max-w-2xl relative z-10 animate-fade-in-up opacity-0 text-balance" style={{ color: colors.muted, animationDelay: '300ms' }}>{slide.subtitle}</p>
             )}
           </div>
         )}
 
-        {/* ════ BENTO-GRID (NEW) ════ */}
+        {/* ════ BENTO-GRID ════ */}
         {slide.layout === 'bento-grid' && (
           <div className="h-full flex flex-col pt-2 md:pt-4">
             {slide.title && <h2 className="text-2xl md:text-4xl font-bold mb-6 tracking-tight animate-fade-in-up opacity-0" style={{ color: colors.primary }}>{slide.title}</h2>}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 flex-1 h-full pb-4">
               {slide.items?.map((item, i) => {
                 const total = slide.items?.length || 0;
-                // Asymmetrical grid logic: First item is large, 4th item is wide if there are 4 items, etc.
                 const isFirst = i === 0;
                 const isWide = (total === 4 && i === 3) || (total === 5 && i === 3) || (total === 5 && i === 4);
-                
                 return (
-                  <GlassCard key={i} delay={i * 100} className={`p-5 flex flex-col justify-start hover:-translate-y-1 transition-transform ${isFirst ? 'md:col-span-2 md:row-span-2' : ''} ${isWide ? 'md:col-span-2' : ''}`}>
-                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl md:text-2xl mb-4 bg-white/[0.05] border border-white/10 shrink-0`} style={{ color: colors.primary }}>
+                  <Card key={i} delay={i * 100} className={`p-5 flex flex-col justify-start hover:-translate-y-1 transition-transform ${isFirst ? 'md:col-span-2 md:row-span-2' : ''} ${isWide ? 'md:col-span-2' : ''}`}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl md:text-2xl mb-4 shrink-0" style={{ color: colors.primary, background: `${colors.primary}15`, border: `1px solid ${colors.primary}30` }}>
                       {item.icon || '✨'}
                     </div>
-                    <h3 className={`font-bold text-white/95 mb-2 ${isFirst ? 'text-xl md:text-2xl' : 'text-base md:text-lg'}`}>{item.title}</h3>
-                    <p className={`text-white/60 leading-relaxed text-balance ${isFirst ? 'text-sm md:text-base' : 'text-xs md:text-sm'}`}>{item.description}</p>
-                  </GlassCard>
+                    <h3 className={`font-bold mb-2 ${isFirst ? 'text-xl md:text-2xl' : 'text-base md:text-lg'}`} style={{ color: colors.text }}>{item.title}</h3>
+                    <p className={`leading-relaxed text-balance ${isFirst ? 'text-sm md:text-base' : 'text-xs md:text-sm'}`} style={{ color: colors.muted }}>{item.description}</p>
+                  </Card>
                 )
               })}
             </div>
           </div>
         )}
 
-        {/* ════ COMPARISON (NEW) ════ */}
+        {/* ════ COMPARISON ════ */}
         {slide.layout === 'comparison' && (
           <div className="flex flex-col h-full pt-4">
             {slide.title && <h2 className="text-2xl md:text-4xl font-bold mb-8 tracking-tight text-center animate-fade-in-up opacity-0" style={{ color: colors.primary }}>{slide.title}</h2>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 flex-1 items-center pb-8">
               {slide.left && (
-                <GlassCard delay={100} className="p-6 md:p-8 flex flex-col border border-white/[0.05] !bg-zinc-900/40 opacity-80 scale-95 origin-right">
-                  <h3 className="text-xl md:text-2xl font-bold text-white/60 mb-4">{slide.left.heading}</h3>
-                  <p className="text-white/40 mb-6 leading-relaxed flex-1">{slide.left.content}</p>
+                <Card delay={100} className="p-6 md:p-8 flex flex-col scale-95 origin-right" style={{ opacity: 0.75 }}>
+                  <h3 className="text-xl md:text-2xl font-bold mb-4" style={{ color: colors.muted }}>{slide.left.heading}</h3>
+                  <p className="mb-6 leading-relaxed flex-1" style={{ color: colors.muted }}>{slide.left.content}</p>
                   {slide.left.items && (
                     <ul className="space-y-3">
                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {slide.left.items.map((it: any, i: number) => (
-                        <li key={i} className="flex items-start gap-3 text-sm text-white/40"><span className="text-red-400/60 mt-0.5">✕</span> <span className="flex-1">{it}</span></li>
+                        <li key={i} className="flex items-start gap-3 text-sm" style={{ color: colors.muted }}><span className="text-red-500 mt-0.5">✕</span> <span className="flex-1">{it}</span></li>
                       ))}
                     </ul>
                   )}
-                </GlassCard>
+                </Card>
               )}
               {slide.right && (
-                <GlassCard delay={200} className="p-6 md:p-8 flex flex-col shadow-2xl shadow-indigo-500/10 border border-indigo-500/20 md:scale-105 origin-left z-10" style={{ background: `linear-gradient(135deg, ${colors.primary}15 0%, transparent 100%)` }}>
-                  <div className="absolute -top-10 -right-10 w-32 h-32 blur-3xl opacity-20" style={{ background: colors.primary }} />
+                <Card delay={200} className="p-6 md:p-8 flex flex-col relative md:scale-105 origin-left z-10">
                   <h3 className="text-xl md:text-3xl font-bold mb-4" style={{ color: colors.primary }}>{slide.right.heading}</h3>
-                  <p className="text-white/90 mb-6 leading-relaxed flex-1 text-lg">{slide.right.content}</p>
+                  <p className="mb-6 leading-relaxed flex-1 text-lg" style={{ color: colors.text }}>{slide.right.content}</p>
                   {slide.right.items && (
                     <ul className="space-y-3">
                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {slide.right.items.map((it: any, i: number) => (
-                        <li key={i} className="flex items-start gap-3 text-base text-white/80"><span style={{ color: colors.secondary }} className="mt-0.5">✓</span> <span className="flex-1">{it}</span></li>
+                        <li key={i} className="flex items-start gap-3 text-base" style={{ color: colors.text }}><span style={{ color: colors.secondary }} className="mt-0.5">✓</span> <span className="flex-1">{it}</span></li>
                       ))}
                     </ul>
                   )}
-                </GlassCard>
+                </Card>
               )}
             </div>
           </div>
@@ -686,10 +820,10 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
                 return (
                   <div key={i} className="animate-fade-in-up opacity-0" style={{ animationDelay: `${i * 150 + 100}ms` }}>
                     <div className="flex justify-between mb-3 items-end">
-                      <span className="text-white/80 font-medium text-sm md:text-lg">{stat.label}</span>
+                      <span className="font-medium text-sm md:text-lg" style={{ color: colors.text }}>{stat.label}</span>
                       <span className="font-bold text-2xl md:text-3xl leading-none" style={{ color: colors.primary }}>{stat.value}</span>
                     </div>
-                    <div className="h-3 md:h-4 w-full bg-white/[0.05] rounded-full overflow-hidden shadow-inner">
+                    <div className="h-3 md:h-4 w-full rounded-full overflow-hidden shadow-inner" style={{ background: `${colors.primary}15` }}>
                       <div className="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,255,255,0.3)]" style={{ width: '0%', animation: `growWidth 1.5s ease-out forwards ${i * 150 + 300}ms`, background: `linear-gradient(90deg, ${colors.secondary}, ${colors.primary})` }} />
                       <style>{`@keyframes growWidth { to { width: ${percent}%; } }`}</style>
                     </div>
@@ -707,8 +841,8 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
               <h2 className="text-xl md:text-2xl font-bold mb-4 tracking-tight" style={{ color: colors.text }}>{slide.title}</h2>
               {slide.content && <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>{slide.content}</p>}
               {slide.bullets && (
-                <ul className="space-y-2.5 mt-4" style={{ color: colors.muted }}>
-                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.primary} index={i} />)}
+                <ul className="space-y-2.5 mt-4">
+                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.primary} textColor={colors.text} index={i} />)}
                 </ul>
               )}
             </div>
@@ -742,7 +876,8 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [slidesKey]
   )
-  const colors = useMemo(() => parseColorScheme(contenido), [contenido])
+  const themeStyle = useMemo(() => parseThemeStyle(contenido), [contenido])
+  const colors = useMemo(() => parseColorScheme(contenido, themeStyle), [contenido, themeStyle])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -826,19 +961,21 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
     )
   }
 
+  const isLightTheme = themeStyle === 'light-minimal' || themeStyle === 'corporate' || themeStyle === 'editorial'
+
   return (
-    <div className="flex flex-col h-full bg-zinc-950">
+    <div className={`flex flex-col h-full ${isLightTheme ? 'bg-gray-50' : 'bg-zinc-950'}`}>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/[0.06] bg-zinc-900/30 backdrop-blur-sm shrink-0">
+      <div className={`flex items-center justify-between px-5 py-2.5 shrink-0 ${isLightTheme ? 'border-b border-gray-200 bg-white' : 'border-b border-white/[0.06] bg-zinc-900/30 backdrop-blur-sm'}`}>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-white/80 tracking-tight truncate">{titulo}</h2>
-          <span className="text-[11px] text-white/25">{slides.length} slides</span>
+          <h2 className={`text-sm font-semibold tracking-tight truncate ${isLightTheme ? 'text-gray-800' : 'text-white/80'}`}>{titulo}</h2>
+          <span className={`text-[11px] ${isLightTheme ? 'text-gray-400' : 'text-white/25'}`}>{slides.length} slides · {themeStyle}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleDownload}
             disabled={exporting}
-            className="text-[11px] px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/50 hover:bg-white/[0.08] hover:text-white/70 transition-all disabled:opacity-30 font-medium"
+            className={`text-[11px] px-3 py-1.5 rounded-lg transition-all disabled:opacity-30 font-medium border ${isLightTheme ? 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100' : 'bg-white/[0.04] border-white/[0.08] text-white/50 hover:bg-white/[0.08] hover:text-white/70'}`}
           >
             {exporting ? 'Exportando...' : '⬇ .pptx'}
           </button>
@@ -856,19 +993,20 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
             index={currentSlide}
             total={slides.length}
             colors={colors}
+            themeStyle={themeStyle}
             isTransitioning={isTransitioning}
           />
         </div>
       </div>
 
-      {/* ── Premium Navigation Bar ── */}
-      <div className="shrink-0 border-t border-white/[0.06] bg-zinc-900/40 backdrop-blur-sm">
+      {/* ── Navigation Bar ── */}
+      <div className={`shrink-0 border-t ${isLightTheme ? 'border-gray-200 bg-white' : 'border-white/[0.06] bg-zinc-900/40 backdrop-blur-sm'}`}>
         <div className="flex items-center justify-between px-4 py-2.5 md:px-6">
           {/* Prev */}
           <button
             onClick={() => goToSlide(currentSlide - 1)}
             disabled={currentSlide === 0}
-            className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/50 hover:bg-white/[0.08] hover:text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+            className={`p-2 rounded-lg border transition-all disabled:opacity-20 disabled:cursor-not-allowed ${isLightTheme ? 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-700' : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.08] hover:text-white/80'}`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           </button>
@@ -881,23 +1019,21 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
                 onClick={() => goToSlide(i)}
                 className={`shrink-0 transition-all duration-300 rounded-lg overflow-hidden relative group border-2 ${
                   i === currentSlide
-                    ? 'w-16 h-10 md:w-20 md:h-12 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)]'
-                    : 'w-10 h-6 md:w-14 md:h-8 border-white/10 opacity-60 hover:opacity-100 hover:border-white/30'
+                    ? `w-16 h-10 md:w-20 md:h-12 ${isLightTheme ? 'border-gray-400 shadow-md' : 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)]'}`
+                    : `w-10 h-6 md:w-14 md:h-8 opacity-60 hover:opacity-100 ${isLightTheme ? 'border-gray-200 hover:border-gray-400' : 'border-white/10 hover:border-white/30'}`
                 }`}
-                style={{ background: colors.background }}
+                style={{ background: isLightTheme ? '#f9fafb' : colors.background }}
                 title={s.title || `Slide ${i + 1}`}
               >
-                {/* Visual hint of layout inside thumbnail */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-1 opacity-40 group-hover:opacity-80 transition-opacity">
-                  <div className="w-1/2 h-0.5 rounded-full bg-current mb-0.5" style={{ color: colors.primary }} />
-                  <div className="w-3/4 h-0.5 rounded-full bg-current mb-0.5" style={{ color: colors.muted }} />
-                  {s.image_prompt && <div className="absolute right-1 bottom-1 w-2 h-2 rounded bg-indigo-400/40" />}
+                  <div className="w-1/2 h-0.5 rounded-full mb-0.5" style={{ backgroundColor: colors.primary }} />
+                  <div className="w-3/4 h-0.5 rounded-full mb-0.5" style={{ backgroundColor: colors.muted }} />
+                  {s.image_prompt && <div className="absolute right-1 bottom-1 w-2 h-2 rounded" style={{ backgroundColor: colors.secondary, opacity: 0.5 }} />}
                 </div>
-                
                 {i === currentSlide && (
                   <div className="absolute inset-x-0 bottom-0 h-1" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
                 )}
-                <span className={`absolute inset-0 flex items-center justify-center font-bold ${i === currentSlide ? 'text-[10px] md:text-xs text-white drop-shadow-md' : 'text-[8px] md:text-[10px] text-white/50'}`}>
+                <span className={`absolute inset-0 flex items-center justify-center font-bold ${i === currentSlide ? 'text-[10px] md:text-xs' : 'text-[8px] md:text-[10px]'}`} style={{ color: i === currentSlide ? colors.primary : colors.muted }}>
                   {i + 1}
                 </span>
               </button>
@@ -908,7 +1044,7 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
           <button
             onClick={() => goToSlide(currentSlide + 1)}
             disabled={currentSlide === slides.length - 1}
-            className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/50 hover:bg-white/[0.08] hover:text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+            className={`p-2 rounded-lg border transition-all disabled:opacity-20 disabled:cursor-not-allowed ${isLightTheme ? 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-700' : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.08] hover:text-white/80'}`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </button>
