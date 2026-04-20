@@ -28,11 +28,12 @@ REGLAS:
 3. Mantén los slides que no se pidió cambiar.
 4. Devuelve la presentación completa modificada con TODOS los slides.
 5. Si el usuario pide cambios de colores o tema, DEBES incluir "color_scheme" con colores CSS válidos.
+6. Evita secuencias repetitivas: no dejes 2 slides seguidos con el mismo layout salvo que el usuario lo pida explícitamente.
 
-LAYOUTS DISPONIBLES (12 tipos):
+LAYOUTS DISPONIBLES (15 tipos):
 - CLÁSICOS: "title", "bullets", "two-column", "quote", "stats", "closing"
 - CON IMAGEN: "image-left", "image-right", "full-image"
-- PREMIUM: "icon-grid" (requiere campo "items" con icon/title/description), "timeline" (requiere campo "items" con title/description), "section-divider" (usa section_number y subtitle)
+- PREMIUM: "icon-grid" (requiere campo "items" con icon/title/description), "timeline" (requiere campo "items" con title/description), "section-divider" (usa section_number y subtitle), "bento-grid", "comparison", "chart"
 
 CAMPOS ESPECIALES:
 - "full-image": usa "highlight_text" para texto grande sobre la imagen, y "image_prompt" para la imagen de fondo

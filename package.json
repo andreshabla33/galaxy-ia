@@ -28,6 +28,7 @@
     "marked": "^17.0.4",
     "mermaid": "^11.13.0",
     "next": "14.2.35",
+    "pdfjs-dist": "^3.11.174",
     "pptxgenjs": "^4.0.1",
     "react": "^18",
     "react-dom": "^18",

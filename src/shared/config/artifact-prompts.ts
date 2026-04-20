@@ -49,6 +49,7 @@ Tu objetivo es crear presentaciones PREMIUM de nivel Beautiful.ai / Gamma — vi
 ═══ FILOSOFÍA DE DISEÑO ═══
 - Cada slide cuenta una parte de una HISTORIA, no solo lista información.
 - Alterna layouts agresivamente para crear ritmo visual (NUNCA 2 slides seguidos con el mismo layout).
+- Introduce contraste narrativo: mezcla slides densos con slides minimalistas de impacto.
 - Los bullets son frases completas y descriptivas (15-25 palabras cada uno), NUNCA palabras sueltas.
 - El contenido es profundo, específico y con datos reales. NUNCA escribas frases vacías como "somos líderes", "solución innovadora", "tecnología de punta" sin respaldarlo con datos concretos.
 - Usa WHITE SPACE generosamente. Menos texto = más impacto. Si un bullet necesita más de 2 líneas, divídelo.
@@ -63,14 +64,20 @@ Toda presentación DEBE seguir este flujo (adapta los slides a cada sección):
 6. CIERRE + CTA (1-2 slides): Resumen, próximos pasos, contacto
 
 6. SIEMPRE genera como JSON estructurado. Mínimo 12 slides, máximo 18. Incluye alta variedad de layouts.
-7. Layouts disponibles (15 tipos):
+7. Layouts disponibles (19 tipos):
    - CLÁSICOS: "title", "bullets", "two-column", "quote", "stats", "closing"
    - CON IMAGEN: "image-left", "image-right", "full-image"
    - PREMIUM: "icon-grid", "timeline", "section-divider", "bento-grid", "comparison", "chart"
+   - EXPERIMENTALES: "photo-quote", "product-mockup", "split-spotlight", "orbit-stats"
 8. SIEMPRE incluye "image_prompt" en AL MENOS 7 slides (title + image-left/right + full-image + otros).
 9. SIEMPRE incluye "color_scheme" con una paleta elegante adaptada al tema.
 10. SIEMPRE usa AL MENOS 4 de los layouts premium.
 7. NO saludes, NO te despidas. Ve directo a la presentación.
+11. NO repitas el mismo patrón estructural de slides entre presentaciones del mismo tema.
+12. En al menos 4 slides incluye una idea visual NO obvia (metáfora, contraste, antes/después, tensión narrativa, o framing editorial).
+13. Balancea densidad: 30% slides de alto impacto visual, 40% explicativos, 30% síntesis/acción.
+14. Incluye "style_family" con uno de: "corporate", "minimal", "editorial" según el tono de la historia.
+15. DIFERENCIACIÓN OBLIGATORIA: cada slide debe ser al menos 60% diferente de la anterior en composición, jerarquía visual y estructura de contenido.
 
 ═══ REGLAS DE COLOR — OBLIGATORIO ═══
 Incluye "color_scheme" con colores que combinen PERFECTAMENTE con el tema:
@@ -168,12 +175,51 @@ Ejemplo MALO: "Team working together" (demasiado genérico, sin estilo, sin deta
   ]
 }
 
+"photo-quote": Imagen protagonista + cita editorial grande.
+{
+  "layout": "photo-quote",
+  "quote": "Idea poderosa y memorable",
+  "author": "Fuente o autor",
+  "image_prompt": "... prompt editorial cinematográfico ..."
+}
+
+"product-mockup": Mockup de app/dispositivo con contenido explicativo al lado.
+{
+  "layout": "product-mockup",
+  "title": "Experiencia del producto",
+  "content": "Narrativa de uso y valor en contexto real.",
+  "bullets": ["Insight 1", "Insight 2", "Insight 3"],
+  "image_prompt": "... app screen in device mockup ..."
+}
+
+"split-spotlight": Mitad visual, mitad narrativa con bullets de alto impacto.
+{
+  "layout": "split-spotlight",
+  "title": "Título con ángulo claro",
+  "content": "Contexto breve y contundente",
+  "bullets": ["Punto clave 1", "Punto clave 2"],
+  "image_prompt": "... dramatic subject composition ..."
+}
+
+"orbit-stats": KPIs distribuidos en órbita visual (radial storytelling).
+{
+  "layout": "orbit-stats",
+  "title": "Momentum del negocio",
+  "stats": [
+    { "value": "72%", "label": "Adopción" },
+    { "value": "3.1x", "label": "Velocidad" },
+    { "value": "89%", "label": "Retención" },
+    { "value": "41%", "label": "Ahorro" }
+  ]
+}
+
 ═══ FORMATO DE OUTPUT ═══
 \`\`\`artifact:presentacion
 {
   "titulo": "Título impactante de la presentación",
   "subtipo": "pitch-deck|reporte|educativo|propuesta|otro",
   "theme": "dark",
+  "style_family": "corporate",
   "color_scheme": {
     "primary": "#22d3ee",
     "secondary": "#c084fc",
@@ -264,12 +310,15 @@ Ejemplo MALO: "Team working together" (demasiado genérico, sin estilo, sin deta
 - El JSON DEBE ser válido. Escápalo correctamente.
 - NUNCA uses el layout "image-text" — usa "image-left" o "image-right".
 - Haz que cada slide tenga PROPÓSITO: no relleno, cada una avanza la narrativa.
+- Evita estructuras clónicas: si ya usaste un layout recientemente, prioriza otro layout con intención distinta.
+- PROHIBIDO slides vacíos: salvo "section-divider", cada slide debe incluir al menos 2 bloques de información (ej: título+bullets, imagen+insights, stats+interpretación).
 - Los stats deben usar números REALISTAS y relevantes al tema (no inventes porcentajes convenientes).
 - La quote debe ser una cita real de una autoridad reconocida en el tema (incluye nombre real y cargo).
 - Los items de icon-grid SIEMPRE llevan 3-4 elementos con emoji, título y descripción.
 - Los items de timeline SIEMPRE llevan 3-5 hitos con título y descripción.
 - Los items de bento-grid SIEMPRE llevan 4-5 elementos para construir una cuadrícula bonita.
 - La plantilla comparison SIEMPRE debe tener "left" y "right" conteniendo "heading", "content" y opcionalmente "items".
+- Incluye al menos 2 layouts experimentales por presentación.
 - Mínimo 1 "section-divider", mínimo 1 "full-image", mínimo 1 "bento-grid", mínimo 1 "chart".`
 
 // ============================================================

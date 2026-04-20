@@ -17,6 +17,9 @@ interface Slide {
   highlight_text?: string
 }
 
+import { optimizePresentationSlides } from './presentation-layout-engine'
+import { resolvePresentationColorScheme } from './presentation-theme-engine'
+
 interface PresentationData {
   slides?: Slide[]
   theme?: string
@@ -63,14 +66,17 @@ function toHex6(color: string): string {
 }
 
 function parseColors(data: PresentationData): PptxColors {
-  const cs = data.color_scheme
-  if (!cs) return DEFAULT_COLORS
+  const resolved = resolvePresentationColorScheme(data.color_scheme, JSON.stringify(data).slice(0, 400))
+  const bgSource = resolved.background.includes('gradient')
+    ? (resolved.background.match(/#([0-9a-fA-F]{6})/)?.[0] || '#0B0D17')
+    : resolved.background
+
   return {
-    bg: toHex6(cs.background || '') || DEFAULT_COLORS.bg,
-    title: toHex6(cs.primary || '') || DEFAULT_COLORS.title,
-    text: toHex6(cs.text || '') || DEFAULT_COLORS.text,
-    accent: toHex6(cs.secondary || '') || DEFAULT_COLORS.accent,
-    muted: toHex6(cs.muted || '') || DEFAULT_COLORS.muted,
+    bg: toHex6(bgSource || '') || DEFAULT_COLORS.bg,
+    title: toHex6(resolved.primary || '') || DEFAULT_COLORS.title,
+    text: toHex6(resolved.text || '') || DEFAULT_COLORS.text,
+    accent: toHex6(resolved.secondary || '') || DEFAULT_COLORS.accent,
+    muted: toHex6(resolved.muted || '') || DEFAULT_COLORS.muted,
     white: DEFAULT_COLORS.white,
   }
 }
@@ -239,7 +245,7 @@ function addClosingSlide(pptx: any, slide: Slide, images: Map<string, string>, C
 
 // Normalize legacy/unknown layout names to the closest known layout
 function normalizeLayout(layout: string): string {
-  const KNOWN = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 'full-image', 'icon-grid', 'timeline', 'section-divider', 'bento-grid', 'comparison', 'chart']
+  const KNOWN = ['title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 'full-image', 'icon-grid', 'timeline', 'section-divider', 'bento-grid', 'comparison', 'chart', 'photo-quote', 'product-mockup', 'split-spotlight', 'orbit-stats']
   if (KNOWN.includes(layout)) return layout
   if (layout === 'image-text') return 'image-right'
   if (layout === 'content' || layout === 'text') return 'bullets'
@@ -248,6 +254,10 @@ function normalizeLayout(layout: string): string {
   if (layout === 'bento') return 'bento-grid'
   if (layout === 'roadmap' || layout === 'process') return 'timeline'
   if (layout === 'hero' || layout === 'splash') return 'full-image'
+  if (layout === 'quote-photo' || layout === 'photo_quote') return 'photo-quote'
+  if (layout === 'mockup' || layout === 'device-mockup') return 'product-mockup'
+  if (layout === 'spotlight' || layout === 'split-hero') return 'split-spotlight'
+  if (layout === 'radial-stats' || layout === 'kpi-orbit') return 'orbit-stats'
   return layout
 }
 
@@ -453,7 +463,9 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
   pptx.author = 'Galaxy AI Canvas'
   pptx.title = titulo
 
-  const slides = (data.slides || []) as Slide[]
+  const slides = optimizePresentationSlides((data.slides || []) as Slide[], {
+    seedKey: `${titulo}-${JSON.stringify(data.slides || [])}`,
+  }) as Slide[]
   const COLORS = parseColors(data as PresentationData)
 
   for (const rawSlide of slides) {
@@ -474,6 +486,10 @@ export async function exportToPptx(data: PresentationData, titulo: string, image
       case 'bento-grid': addBentoGridSlide(pptx, slide, images, COLORS); break
       case 'comparison': addComparisonSlide(pptx, slide, images, COLORS); break
       case 'chart': addChartSlide(pptx, slide, images, COLORS); break
+      case 'photo-quote': addFullImageSlide(pptx, slide, images, COLORS); break
+      case 'product-mockup': addImageRightSlide(pptx, slide, images, COLORS); break
+      case 'split-spotlight': addImageLeftSlide(pptx, slide, images, COLORS); break
+      case 'orbit-stats': addChartSlide(pptx, slide, images, COLORS); break
       default: addBulletsSlide(pptx, slide, images, COLORS); break
     }
   }

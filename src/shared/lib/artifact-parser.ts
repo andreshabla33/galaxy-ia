@@ -413,6 +413,7 @@ function buildContenido(type: ArtifactType, parsed: Record<string, unknown>): Re
       return {
         slides: recoveredSlides,
         theme: parsed.theme || 'dark',
+        style_family: parsed.style_family || 'corporate',
         total_slides: recoveredSlides.length,
         ...(parsed.color_scheme ? { color_scheme: parsed.color_scheme } : {}),
       }

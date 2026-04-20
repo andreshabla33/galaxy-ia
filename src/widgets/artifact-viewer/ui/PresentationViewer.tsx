@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { exportToPptx } from '@/shared/lib/export-pptx'
+import { optimizePresentationSlides } from '@/shared/lib/presentation-layout-engine'
+import { resolvePresentationColorScheme } from '@/shared/lib/presentation-theme-engine'
 import { ThinkingIndicator } from '@/widgets/thinking-indicator'
 import { useAppStore } from '@/features/settings/model/appStore'
 
@@ -19,6 +21,10 @@ interface Slide {
   contact?: string
   content?: string
   image_prompt?: string
+  image_url?: string
+  texture_url?: string
+  overlay_opacity?: number
+  focal_point?: string
   // New premium fields
   items?: { icon?: string; title: string; description: string }[]
   section_number?: number
@@ -43,24 +49,38 @@ const DEFAULT_COLORS: ColorScheme = {
 
 function parseColorScheme(contenido: Record<string, unknown>): ColorScheme {
   const cs = contenido.color_scheme as Record<string, string> | undefined
-  if (!cs) return DEFAULT_COLORS
+  const resolved = resolvePresentationColorScheme(cs, JSON.stringify(contenido).slice(0, 400))
   return {
-    primary: cs.primary || DEFAULT_COLORS.primary,
-    secondary: cs.secondary || DEFAULT_COLORS.secondary,
-    background: cs.background
-      ? (cs.background.includes('gradient') ? cs.background : `linear-gradient(135deg, ${cs.background} 0%, ${cs.background} 100%)`)
-      : DEFAULT_COLORS.background,
-    text: cs.text || DEFAULT_COLORS.text,
-    muted: cs.muted || DEFAULT_COLORS.muted,
+    primary: resolved.primary || DEFAULT_COLORS.primary,
+    secondary: resolved.secondary || DEFAULT_COLORS.secondary,
+    background: resolved.background || DEFAULT_COLORS.background,
+    text: resolved.text || DEFAULT_COLORS.text,
+    muted: resolved.muted || DEFAULT_COLORS.muted,
   }
 }
 
 // Global cache — persists across slide navigation and re-renders
 const imageCache = new Map<string, string>()
 
-// Simple component to render a cached image (no fetching — images are pre-loaded)
-function SlideImage({ prompt, className = '' }: { prompt: string; className?: string }) {
-  const url = imageCache.get(prompt)
+function resolveSlideImage(slide: Slide): string | undefined {
+  if (slide.image_url) return slide.image_url
+  if (slide.image_prompt) return imageCache.get(slide.image_prompt)
+  return undefined
+}
+
+// Simple component to render a slide image from url/prompt
+function SlideImage({
+  prompt,
+  imageUrl,
+  focalPoint,
+  className = '',
+}: {
+  prompt?: string
+  imageUrl?: string
+  focalPoint?: string
+  className?: string
+}) {
+  const url = imageUrl || (prompt ? imageCache.get(prompt) : undefined)
   if (!url) {
     return (
       <div className={`overflow-hidden rounded-lg border border-white/[0.08] bg-zinc-900/50 flex flex-col items-center justify-center p-4 text-center ${className}`}>
@@ -73,7 +93,8 @@ function SlideImage({ prompt, className = '' }: { prompt: string; className?: st
   }
   return (
     <div className={`overflow-hidden rounded-lg border border-white/[0.08] ${className}`}>
-      <img src={url} alt="" className="w-full h-full object-cover" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" className="w-full h-full object-cover" style={{ objectPosition: focalPoint || 'center center' }} />
     </div>
   )
 }
@@ -260,7 +281,8 @@ interface PresentationViewerProps {
 
 const KNOWN_LAYOUTS = [
   'title', 'bullets', 'two-column', 'stats', 'quote', 'image-left', 'image-right', 'closing', 
-  'full-image', 'icon-grid', 'timeline', 'section-divider', 'bento-grid', 'comparison', 'chart'
+  'full-image', 'icon-grid', 'timeline', 'section-divider', 'bento-grid', 'comparison', 'chart',
+  'photo-quote', 'product-mockup', 'split-spotlight', 'orbit-stats'
 ]
 
 // Normalize legacy/unknown layout names to the closest known layout
@@ -273,6 +295,10 @@ function normalizeLayout(layout: string): string {
   if (layout === 'bento') return 'bento-grid'
   if (layout === 'roadmap' || layout === 'process') return 'timeline'
   if (layout === 'hero' || layout === 'splash') return 'full-image'
+  if (layout === 'quote-photo' || layout === 'photo_quote') return 'photo-quote'
+  if (layout === 'mockup' || layout === 'device-mockup') return 'product-mockup'
+  if (layout === 'spotlight' || layout === 'split-hero') return 'split-spotlight'
+  if (layout === 'radial-stats' || layout === 'kpi-orbit') return 'orbit-stats'
   return layout
 }
 
@@ -340,7 +366,8 @@ function BulletItem({ text, color, index }: { text: string; color: string; index
 
 function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning }: { slide: Slide; index: number; total: number; colors: ColorScheme; isTransitioning?: boolean }) {
   const slide = useMemo(() => ({ ...rawSlide, layout: normalizeLayout(rawSlide.layout) }), [rawSlide])
-  const hasImage = !!slide.image_prompt
+  const imageUrl = resolveSlideImage(slide)
+  const hasImage = !!imageUrl
 
   const slideStyle: React.CSSProperties = {
     background: colors.background,
@@ -356,15 +383,21 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
       
       {/* Premium subtle dot grid pattern in background */}
       <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+      {slide.texture_url && (
+        <div className="absolute inset-0 z-0 opacity-[0.09] mix-blend-soft-light pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={slide.texture_url} alt="" className="w-full h-full object-cover" />
+        </div>
+      )}
 
       <SlideNumber index={index} total={total} muted={colors.muted} />
 
       {/* Background image overlay for content-heavy layouts */}
       {hasImage && !['image-left', 'image-right', 'title'].includes(slide.layout) && (
         <div className="absolute inset-0 z-0">
-          <SlideImage prompt={slide.image_prompt!} className="w-full h-full !rounded-none !border-0" />
+          <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="w-full h-full !rounded-none !border-0" />
           <div className="absolute inset-0" style={{
-            background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.75) 40%, rgba(0,0,0,0.5) 100%)'
+            background: `linear-gradient(to top, rgba(0,0,0,${slide.overlay_opacity ?? 0.92}) 0%, rgba(0,0,0,0.72) 40%, rgba(0,0,0,0.45) 100%)`
           }} />
         </div>
       )}
@@ -376,12 +409,12 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
         {slide.layout === 'title' && (
           <div className={`flex items-center ${hasImage ? 'gap-10' : ''} h-full`}>
             <div className={`flex flex-col justify-center animate-fade-in-up opacity-0 ${hasImage ? 'flex-1' : 'w-full items-center text-center'}`} style={{ animationDelay: '100ms' }}>
-              <div className="w-16 h-1.5 rounded-full mb-8 opacity-90 shadow-lg shadow-black/20" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
-              <h1 className="text-3xl md:text-3xl lg:text-5xl font-bold leading-tight tracking-tight mb-5 text-balance" style={{ color: colors.primary }}>
+              <div className={`h-1.5 rounded-full mb-10 opacity-90 shadow-lg shadow-black/20 ${hasImage ? 'w-20' : 'w-24 mx-auto'}`} style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+              <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight mb-8 text-balance" style={{ color: colors.primary }}>
                 {slide.title}
               </h1>
               {slide.subtitle && (
-                <p className="text-base md:text-lg leading-relaxed max-w-2xl text-balance" style={{ color: colors.muted }}>
+                <p className="text-lg md:text-xl lg:text-2xl leading-relaxed max-w-3xl text-balance font-light" style={{ color: colors.muted }}>
                   {slide.subtitle}
                 </p>
               )}
@@ -389,7 +422,7 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             {hasImage && (
               <div className="w-[45%] shrink-0 relative animate-scale-in opacity-0" style={{ animationDelay: '200ms' }}>
                 <div className="absolute -inset-4 rounded-[2rem] opacity-25 blur-2xl" style={{ background: colors.primary }} />
-                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-[1.5rem] shadow-2xl shadow-black/40 ring-1 ring-white/10" />
+                <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="relative aspect-[4/3] !rounded-[1.5rem] shadow-2xl shadow-black/40 ring-1 ring-white/10" />
               </div>
             )}
           </div>
@@ -401,7 +434,7 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             {hasImage && (
               <div className="w-[42%] shrink-0 relative">
                 <div className="absolute -inset-2 rounded-2xl opacity-15 blur-lg" style={{ background: colors.primary }} />
-                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-2xl shadow-lg shadow-black/20" />
+                <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="relative aspect-[4/3] !rounded-2xl shadow-lg shadow-black/20" />
               </div>
             )}
             <div className="flex-1 flex flex-col justify-center min-w-0">
@@ -431,7 +464,7 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             {hasImage && (
               <div className="w-[42%] shrink-0 relative">
                 <div className="absolute -inset-2 rounded-2xl opacity-15 blur-lg" style={{ background: colors.secondary }} />
-                <SlideImage prompt={slide.image_prompt!} className="relative aspect-[4/3] !rounded-2xl shadow-lg shadow-black/20" />
+                <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="relative aspect-[4/3] !rounded-2xl shadow-lg shadow-black/20" />
               </div>
             )}
           </div>
@@ -527,12 +560,13 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             {/* Full-bleed background image */}
             {hasImage && (
               <div className="absolute inset-0 z-0 animate-scale-in opacity-0" style={{ animationDuration: '1.2s' }}>
-                <SlideImage prompt={slide.image_prompt!} className="w-full h-full !rounded-none !border-0" />
+                <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="w-full h-full !rounded-none !border-0" />
                 <div className="absolute inset-0" style={{
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.15) 100%)'
+                  background: `linear-gradient(to top, rgba(0,0,0,${slide.overlay_opacity ?? 0.95}) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.15) 100%)`
                 }} />
               </div>
             )}
+
             {/* Highlight text — large and dramatic */}
             {slide.highlight_text && (
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-center px-10 mb-4 leading-tight relative z-10 animate-fade-in-up opacity-0 drop-shadow-2xl text-balance" style={{ color: '#ffffff', animationDelay: '300ms' }}>
@@ -549,6 +583,41 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
                 {slide.title}
               </p>
             )}
+            {slide.bullets && slide.bullets.length > 0 && (
+              <div className="mt-6 flex flex-wrap gap-2.5 justify-center px-6 relative z-10 max-w-4xl">
+                {slide.bullets.slice(0, 3).map((b, i) => (
+                  <span
+                    key={i}
+                    className="text-[11px] md:text-xs px-3 py-1.5 rounded-full border border-white/20 bg-black/35 text-white/85 backdrop-blur-sm animate-fade-in-up opacity-0"
+                    style={{ animationDelay: `${560 + i * 120}ms` }}
+                  >
+                    {b}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════ PHOTO-QUOTE (Canva-like) ════ */}
+        {slide.layout === 'photo-quote' && (
+          <div className="absolute inset-0 z-[2]">
+            {hasImage && (
+              <div className="absolute inset-0">
+                <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="w-full h-full !rounded-none !border-0" />
+                <div className="absolute inset-0" style={{ background: `linear-gradient(105deg, rgba(0,0,0,${slide.overlay_opacity ?? 0.78}) 0%, rgba(0,0,0,0.45) 45%, rgba(0,0,0,0.2) 100%)` }} />
+              </div>
+            )}
+            <div className="relative h-full flex flex-col justify-end px-10 md:px-16 pb-12 md:pb-16 max-w-4xl">
+              {slide.quote && (
+                <p className="text-2xl md:text-4xl lg:text-5xl font-semibold leading-tight text-white drop-shadow-xl text-balance">
+                  &ldquo;{slide.quote}&rdquo;
+                </p>
+              )}
+              {slide.author && (
+                <p className="mt-5 text-sm md:text-base uppercase tracking-[0.18em] text-white/75">{slide.author}</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -700,6 +769,100 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
           </div>
         )}
 
+        {/* ════ PRODUCT-MOCKUP (Canva-like) ════ */}
+        {slide.layout === 'product-mockup' && (
+          <div className="grid grid-cols-2 gap-8 md:gap-12 items-center h-full">
+            <div className="min-w-0">
+              {slide.title && (
+                <h2 className="text-2xl md:text-4xl font-bold tracking-tight mb-4 text-balance" style={{ color: colors.primary }}>
+                  {slide.title}
+                </h2>
+              )}
+              {slide.content && (
+                <p className="text-sm md:text-lg leading-relaxed mb-5" style={{ color: colors.muted }}>
+                  {slide.content}
+                </p>
+              )}
+              {slide.bullets && (
+                <ul className="space-y-2.5">
+                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.secondary} index={i} />)}
+                </ul>
+              )}
+            </div>
+
+            <div className="relative flex justify-center">
+              <div className="absolute -inset-6 blur-3xl opacity-25" style={{ background: `radial-gradient(circle, ${colors.primary} 0%, transparent 70%)` }} />
+              <div className="relative w-[75%] max-w-[360px] rounded-[2rem] bg-zinc-900 border border-white/20 p-2 shadow-2xl shadow-black/50">
+                <div className="w-16 h-1 mx-auto rounded-full bg-white/20 mb-2" />
+                <div className="rounded-[1.5rem] overflow-hidden border border-white/10 aspect-[9/19] bg-black">
+                  {hasImage ? (
+                    <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="w-full h-full !rounded-none !border-0" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-white/40">Sin mockup</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════ SPLIT-SPOTLIGHT (Gamma-like) ════ */}
+        {slide.layout === 'split-spotlight' && (
+          <div className="grid grid-cols-2 gap-8 md:gap-12 items-center h-full">
+            <div className="relative h-full min-h-[280px]">
+              {hasImage ? (
+                <>
+                  <div className="absolute -inset-4 blur-2xl opacity-20" style={{ background: colors.primary }} />
+                  <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="relative h-full min-h-[280px] !rounded-3xl shadow-2xl ring-1 ring-white/10" />
+                </>
+              ) : (
+                <GlassCard className="h-full p-8 flex items-center justify-center text-white/50">Sin visual</GlassCard>
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-2xl md:text-4xl font-bold tracking-tight mb-5 text-balance" style={{ color: colors.primary }}>
+                {slide.title}
+              </h2>
+              {slide.content && (
+                <p className="text-sm md:text-lg leading-relaxed mb-5" style={{ color: colors.muted }}>
+                  {slide.content}
+                </p>
+              )}
+              {slide.bullets && (
+                <ul className="space-y-2.5">
+                  {slide.bullets.map((b, i) => <BulletItem key={i} text={b} color={colors.secondary} index={i} />)}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════ ORBIT-STATS (Gamma-like) ════ */}
+        {slide.layout === 'orbit-stats' && (
+          <div className="flex flex-col items-center justify-center h-full">
+            {slide.title && <h2 className="text-2xl md:text-4xl font-bold mb-8 tracking-tight text-center" style={{ color: colors.primary }}>{slide.title}</h2>}
+            <div className="relative w-[84%] max-w-[820px] aspect-[16/8] flex items-center justify-center">
+              <div className="absolute w-40 h-40 md:w-52 md:h-52 rounded-full border border-white/15 bg-white/[0.02] backdrop-blur-sm" />
+              <div className="absolute w-64 h-64 md:w-80 md:h-80 rounded-full border border-white/10" />
+              <div className="absolute w-[94%] h-[70%] rounded-full border border-white/5" />
+              {(slide.stats || []).slice(0, 4).map((stat, i) => {
+                const positions = [
+                  'left-[8%] top-[12%]',
+                  'right-[8%] top-[12%]',
+                  'left-[14%] bottom-[8%]',
+                  'right-[14%] bottom-[8%]',
+                ]
+                return (
+                  <GlassCard key={i} className={`absolute ${positions[i]} px-4 py-3 min-w-[150px] text-center`}>
+                    <p className="text-2xl md:text-3xl font-extrabold leading-none" style={{ color: colors.primary }}>{stat.value}</p>
+                    <p className="text-xs md:text-sm mt-1" style={{ color: colors.muted }}>{stat.label}</p>
+                  </GlassCard>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ════ FALLBACK ════ */}
         {!KNOWN_LAYOUTS.includes(slide.layout) && (
           <div className={`${hasImage ? 'flex items-center gap-8' : ''}`}>
@@ -714,7 +877,7 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
             </div>
             {hasImage && (
               <div className="w-[40%] shrink-0 relative">
-                <SlideImage prompt={slide.image_prompt!} className="aspect-[4/3] !rounded-2xl shadow-lg" />
+                <SlideImage imageUrl={imageUrl} focalPoint={slide.focal_point} className="aspect-[4/3] !rounded-2xl shadow-lg" />
               </div>
             )}
           </div>
@@ -731,17 +894,14 @@ function SlideRenderer({ slide: rawSlide, index, total, colors, isTransitioning 
 export function PresentationViewer({ contenido, titulo }: PresentationViewerProps) {
   const slidesKey = JSON.stringify(contenido.slides)
 
-  useEffect(() => {
-    console.log('[PresentationViewer] Mount with titulo:', titulo)
-    console.log('[PresentationViewer] Is slides array?', Array.isArray(contenido.slides))
-    console.log('[PresentationViewer] Slides content:', JSON.stringify(contenido.slides, null, 2))
-  }, [titulo, contenido])
-
-  const slides = useMemo(
-    () => (Array.isArray(contenido.slides) ? contenido.slides : []) as Slide[],
+  const slides = useMemo(() => {
+    const rawSlides = (Array.isArray(contenido.slides) ? contenido.slides : []) as Slide[]
+    return optimizePresentationSlides(rawSlides, {
+      seedKey: `${titulo}-${slidesKey}`,
+      richLayouts: KNOWN_LAYOUTS,
+    }) as Slide[]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slidesKey]
-  )
+  }, [slidesKey, titulo])
   const colors = useMemo(() => parseColorScheme(contenido), [contenido])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [exporting, setExporting] = useState(false)
@@ -750,7 +910,8 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
   const imagePrompts = useMemo(() => {
     const prompts: string[] = []
     for (const slide of slides) {
-      if (slide.image_prompt && !prompts.includes(slide.image_prompt)) {
+      // Skip image generation when a direct image_url is already provided
+      if (slide.image_prompt && !slide.image_url && !prompts.includes(slide.image_prompt)) {
         prompts.push(slide.image_prompt)
       }
     }
@@ -891,7 +1052,7 @@ export function PresentationViewer({ contenido, titulo }: PresentationViewerProp
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-1 opacity-40 group-hover:opacity-80 transition-opacity">
                   <div className="w-1/2 h-0.5 rounded-full bg-current mb-0.5" style={{ color: colors.primary }} />
                   <div className="w-3/4 h-0.5 rounded-full bg-current mb-0.5" style={{ color: colors.muted }} />
-                  {s.image_prompt && <div className="absolute right-1 bottom-1 w-2 h-2 rounded bg-indigo-400/40" />}
+                  {(s.image_prompt || s.image_url) && <div className="absolute right-1 bottom-1 w-2 h-2 rounded bg-indigo-400/40" />}
                 </div>
                 
                 {i === currentSlide && (

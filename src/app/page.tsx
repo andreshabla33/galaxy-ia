@@ -325,6 +325,12 @@ export default function Home() {
           >
             <span>✨</span> Usar plantilla
           </button>
+          <a
+            href="/coherence"
+            className="text-xs px-3 py-1.5 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-indigo-400 group-hover:text-indigo-300 hover:bg-indigo-500/15 hover:border-indigo-500/30 transition-all flex items-center gap-1.5"
+          >
+            <span>🔍</span> Analizar coherencia
+          </a>
           {!isDesktop && messages.length > 0 && (
             <button
               onClick={() => setShowArtifactOverlay(true)}

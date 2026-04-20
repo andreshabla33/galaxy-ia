@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { X, Sparkles, FileText, Presentation, Code, Image, Zap } from 'lucide-react'
+import { X, Sparkles, FileText, Presentation, Code, ImageIcon, Zap } from 'lucide-react'
 
 export type DetectedIntent = 'documento' | 'presentacion' | 'codigo' | 'imagen' | null
 
@@ -28,7 +28,7 @@ const INTENT_META: Record<string, { label: string; icon: React.ReactNode; color:
   documento: { label: 'Documento', icon: <FileText className="w-4 h-4" />, color: 'text-blue-400' },
   presentacion: { label: 'Presentación', icon: <Presentation className="w-4 h-4" />, color: 'text-purple-400' },
   codigo: { label: 'Código', icon: <Code className="w-4 h-4" />, color: 'text-green-400' },
-  imagen: { label: 'Imagen', icon: <Image className="w-4 h-4" />, color: 'text-pink-400' },
+  imagen: { label: 'Imagen', icon: <ImageIcon className="w-4 h-4" />, color: 'text-pink-400' },
 }
 
 const TONE_OPTIONS = [

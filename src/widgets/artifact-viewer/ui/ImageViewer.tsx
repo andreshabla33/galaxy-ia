@@ -54,6 +54,7 @@ export function ImageViewer({ contenido, titulo }: ImageViewerProps) {
       {/* Image display */}
       <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-black/30">
         {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imageUrl}
             alt={titulo}

@@ -11,7 +11,6 @@ import { supabase } from '@/shared/lib/supabase'
 interface UseChatOptions {
   apiKey: string;
   provider: string;
-  systemPrompt?: string;
   onArtifact?: (artifact: ParsedArtifact) => void;
   sessionId?: string | null;
   onSessionCreated?: (id: string) => void;
@@ -28,7 +27,7 @@ interface UseChatReturn {
   setMessages: (messages: ChatMessage[]) => void;
 }
 
-export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId, onSessionCreated }: UseChatOptions): UseChatReturn {
+export function useChat({ apiKey, provider, onArtifact, sessionId, onSessionCreated }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -284,7 +283,7 @@ export function useChat({ apiKey, provider, systemPrompt, onArtifact, sessionId,
     } finally {
       setIsLoading(false)
     }
-  }, [apiKey, provider, systemPrompt, sessionId, onSessionCreated])
+  }, [apiKey, provider, sessionId, onSessionCreated])
 
   return { messages, input, setInput, handleInputChange, append, isLoading, lastArtifact, setMessages }
 }

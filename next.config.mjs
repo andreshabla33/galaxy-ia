@@ -9,6 +9,7 @@ const nextConfig = {
         path: false,
         stream: false,
         crypto: false,
+        canvas: false,
       }
       // Plugin para manejar scheme "node:" que webpack 5 no soporta por defecto
       config.plugins.push(
@@ -26,8 +27,12 @@ const nextConfig = {
         })()
       )
     }
+    if (isServer) {
+      config.externals.push('canvas');
+    }
     return config
   },
+  transpilePackages: ['pdfjs-dist'],
 };
 
 export default nextConfig;
