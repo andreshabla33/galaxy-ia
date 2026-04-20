@@ -35,12 +35,16 @@ export async function streamOpenRouter(apiKey: string, messages: APIChatMessage[
 
   let response = await callOpenRouter(apiKey, PRIMARY_MODEL, body)
 
-  // Auto-fallback on rate limit (429) or upstream provider errors (502/503)
-  if (!response.ok && (response.status === 429 || response.status >= 502)) {
+  // Auto-fallback on any retriable error: rate limits (429), server errors (5xx).
+  // Skip on auth/bad-request errors (400, 401, 403) — retrying won't help there.
+  const isRetriable = (r: Response) =>
+    !r.ok && r.status !== 400 && r.status !== 401 && r.status !== 403
+
+  if (isRetriable(response)) {
     for (const fallback of FALLBACK_MODELS) {
-      console.warn(`[OpenRouter] ${PRIMARY_MODEL} unavailable (${response.status}), trying ${fallback}...`)
+      console.warn(`[OpenRouter] ${PRIMARY_MODEL} failed (HTTP ${response.status}), retrying with ${fallback}`)
       response = await callOpenRouter(apiKey, fallback, body)
-      if (response.ok || (response.status !== 429 && response.status < 502)) break
+      if (!isRetriable(response)) break
     }
   }
 
